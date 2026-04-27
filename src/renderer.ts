@@ -2,21 +2,20 @@ import shader from "./shaders/shaders.wgsl?raw";
 
 export class Renderer {
   public isSupported: boolean = true;
-  private canvas!: HTMLCanvasElement;
+  private canvas: HTMLCanvasElement;
   private device!: GPUDevice;
   private context!: GPUCanvasContext;
-  // private presentationFormat!: GPUTextureFormat;
+  private textureFormat!: GPUTextureFormat;
 
   private bindGroupLayout!: GPUBindGroupLayout;
   private bindGroup!: GPUBindGroup;
   private vertexShaderModule!: GPUShaderModule;
   private fragmentShaderModule!: GPUShaderModule;
 
-  private textureFormat!: GPUTextureFormat;
   private renderPipeline!: GPURenderPipeline;
-  // private commandEncoder?: GPUCommandEncoder
-  // private textureView?: GPUTextureView;
-  // private renderPassEncoder?: GPURenderPassEncoder;
+  private commandEncoder!: GPUCommandEncoder
+  private textureView!: GPUTextureView;
+  private renderPassEncoder!: GPURenderPassEncoder;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -31,17 +30,29 @@ export class Renderer {
   }
 
   public render() {
-    // 1. Get the current texture view for THIS frame
-    const textureView = this.context.getCurrentTexture().createView();
+    this.configureRenderPass();
+    
+    this.renderPassEncoder.setPipeline(this.renderPipeline);
+    this.renderPassEncoder.setBindGroup(0, this.bindGroup);
+    this.renderPassEncoder.draw(3, 1, 0, 0);
 
-    // 2. Create a fresh encoder
-    const commandEncoder = this.device.createCommandEncoder();
+    this.renderPassEncoder.end();
 
-    // 3. Begin the render pass
-    const renderPass = commandEncoder.beginRenderPass({
+    this.device.queue.submit([this.commandEncoder.finish()]);
+  }
+
+  private configureRenderPass() {
+    //command encoder: records draw commands for submission
+    this.commandEncoder = this.device.createCommandEncoder();
+
+    //texture view: image view to the color buffer in this case
+    this.textureView = this.context.getCurrentTexture().createView();
+    
+    //renderpass: holds draw commands, allocated from command encoder
+    this.renderPassEncoder = this.commandEncoder.beginRenderPass({
       colorAttachments: [
         {
-          view: textureView,
+          view: this.textureView,
           clearValue: { r: 0.5, g: 0.0, b: 0.25, a: 1.0 },
           loadOp: "clear",
           storeOp: "store",
@@ -49,36 +60,7 @@ export class Renderer {
       ],
     });
 
-    // 4. Draw
-    renderPass.setPipeline(this.renderPipeline);
-    renderPass.setBindGroup(0, this.bindGroup);
-    renderPass.draw(3, 1, 0, 0);
-
-    // 5. Seal the pass
-    renderPass.end();
-
-    // 6. Finalize the commands and ship them to the GPU
-    this.device.queue.submit([commandEncoder.finish()]);
   }
-
-  // private configureRenderPass() {
-  //   //command encoder: records draw commands for submission
-  //   this.commandEncoder = this.device.createCommandEncoder();
-  //   //texture view: image view to the color buffer in this case
-  //   this.textureView = this.context.getCurrentTexture().createView();
-  //   //renderpass: holds draw commands, allocated from command encoder
-  //   this.renderPassEncoder = this.commandEncoder.beginRenderPass({
-  //     colorAttachments: [
-  //       {
-  //         view: this.textureView,
-  //         clearValue: { r: 0.5, g: 0.0, b: 0.25, a: 1.0 },
-  //         loadOp: "clear",
-  //         storeOp: "store",
-  //       },
-  //     ],
-  //   });
-
-  // }
 
   private configurePipeline() {
     const pipelineLayout = this.device.createPipelineLayout({
@@ -122,7 +104,6 @@ export class Renderer {
 
   private configureGPUCanvasContext() {
     this.context = this.canvas.getContext("webgpu") as GPUCanvasContext;
-    console.log(this.context);
     this.textureFormat = navigator.gpu.getPreferredCanvasFormat();
     // this.textureFormat = "bgra8unorm";
 
