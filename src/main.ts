@@ -1,11 +1,7 @@
 import "./style.css";
+import { Renderer } from "./renderer.ts";
 
-const output_label: HTMLElement = document.getElementById(
-  "compatibility-label",
-) as HTMLElement;
+const canvas = document.getElementById("GLCanvas") as HTMLCanvasElement;
 
-if (navigator.gpu) {
-  output_label.innerText = "WebGPU is supported on this browser";
-} else {
-  output_label.innerText = "WebGPU is not supported on this browser";
-}
+const render = new Renderer(canvas);
+render.init();
