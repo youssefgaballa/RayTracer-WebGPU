@@ -1,4 +1,5 @@
 import shader from "./shaders/shaders.wgsl?raw";
+import { Triangle } from "./triangle";
 
 export class Renderer {
   public isSupported: boolean = true;
@@ -9,6 +10,7 @@ export class Renderer {
 
   private bindGroupLayout!: GPUBindGroupLayout;
   private bindGroup!: GPUBindGroup;
+  private triangles: Array<Triangle> = [];
   private vertexShaderModule!: GPUShaderModule;
   private fragmentShaderModule!: GPUShaderModule;
 
@@ -25,6 +27,7 @@ export class Renderer {
     if (!(await this.getGPUDevice())) return;
     this.configureGPUCanvasContext();
     this.loadShaders();
+    this.configureBuffers();
     this.configureBindGroups();
     this.configurePipeline();
   }
@@ -33,6 +36,10 @@ export class Renderer {
     this.configureRenderPass();
     
     this.renderPassEncoder.setPipeline(this.renderPipeline);
+    // set vertex buffers for each triangle
+    this.triangles.forEach((t) => {
+      this.renderPassEncoder.setVertexBuffer(0, t.buffer);
+    })
     this.renderPassEncoder.setBindGroup(0, this.bindGroup);
     this.renderPassEncoder.draw(3, 1, 0, 0);
 
@@ -42,13 +49,10 @@ export class Renderer {
   }
 
   private configureRenderPass() {
-    //command encoder: records draw commands for submission
     this.commandEncoder = this.device.createCommandEncoder();
 
-    //texture view: image view to the color buffer in this case
     this.textureView = this.context.getCurrentTexture().createView();
     
-    //renderpass: holds draw commands, allocated from command encoder
     this.renderPassEncoder = this.commandEncoder.beginRenderPass({
       colorAttachments: [
         {
@@ -72,6 +76,8 @@ export class Renderer {
       vertex: {
         module: this.vertexShaderModule,
         entryPoint: "vs",
+        // set buffers 
+        buffers: this.triangles.map((t) => t.vertexBufferLayout)
       },
       fragment: {
         module: this.fragmentShaderModule,
@@ -79,6 +85,12 @@ export class Renderer {
         targets: [{ format: this.textureFormat }],
       },
     });
+  }
+
+  private configureBuffers() {
+    const tri: Triangle = new Triangle(this.device);
+
+    this.triangles.push(tri);
   }
 
   private configureBindGroups() {
