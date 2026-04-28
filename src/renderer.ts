@@ -33,6 +33,10 @@ export class Renderer {
   private textureRenderPipeline!: GPURenderPipeline;
   private textureView!: GPUTextureView;
 
+  private frameTimeSpan: HTMLElement = document.getElementById("frame-time") as HTMLElement;
+  private fpsSpan: HTMLElement = document.getElementById("fps") as HTMLElement;
+
+
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
   }
@@ -49,6 +53,8 @@ export class Renderer {
   }
 
   public render() {
+    let start: number = performance.now();
+
     // Create Command Encoder to encode commands to be sent to GPU:
     const commandEncoder: GPUCommandEncoder = this.device.createCommandEncoder({
       label: "Basic Comamnd Encoder",
@@ -89,7 +95,18 @@ export class Renderer {
     this.device.queue.submit([
       commandEncoder.finish(), // GPUCommandBuffer
     ]);
-
+    this.device.queue.onSubmittedWorkDone().then(
+      () => {
+          let end: number = performance.now();
+        if (this.frameTimeSpan) {
+          this.frameTimeSpan.innerText = (end - start).toFixed(2).toString();
+        }
+        if (this.fpsSpan) {
+          this.fpsSpan.innerText = (1.0 / ((end - start) * 0.0001)).toFixed(2).toString();
+        }
+        
+      }
+  );
     requestAnimationFrame(() => this.render());
   }
 
