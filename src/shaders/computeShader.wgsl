@@ -38,36 +38,39 @@ struct HitRecord {
 @compute @workgroup_size(8,8,1)
 fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
 
-  let screen_size: vec2<i32> = vec2<i32>(textureDimensions(color_buffer));
-  let screen_pos : vec2<i32> = vec2<i32>(i32(GlobalInvocationID.x), i32(GlobalInvocationID.y));
+  let canvas_size: vec2<i32> = vec2<i32>(textureDimensions(color_buffer));
+  // canvas_size = [800, 400]
+  let canvas_pos : vec2<i32> = vec2<i32>(i32(GlobalInvocationID.x), i32(GlobalInvocationID.y));
+  // Range( canvas_pos.x ) = [0, 799]
+   // Range( canvas_pos.y ) = [0, 599]
 
-  if (screen_pos.x >= screen_size.x || screen_pos.y >= screen_size.y) {
+  if (canvas_pos.x >= canvas_size.x || canvas_pos.y >= canvas_size.y) {
       return;
   }
 
-  // Centering the coefficients between -0.5 and 0.5
-  let horizontal_coefficient: f32 = (f32(screen_pos.x) - f32(screen_size.x) * 0.5) / f32(screen_size.x);
-  // let vertical_coefficient: f32 = (f32(screen_pos.y) - f32(screen_size.y) / 2) / f32(screen_size.y);
+  let ndc = vec2<f32>(
+    (f32(canvas_pos.x) - f32(canvas_size.x) * 0.5) / (f32(canvas_size.x) * 0.5),
+    (f32(canvas_size.y) * 0.5 - f32(canvas_pos.y)) / (f32(canvas_size.y) * 0.5)
+  );
+  // Range(ndc.x) = [-1.0, 1.0]
+  // Range(ndc.y) = [1.0, -1.0] // flipped because texture coords are automatically mirrored
 
-  // Inverting Y so that top of screen looks "up"
-  let vertical_coefficient: f32 = (f32(screen_size.y) * 0.5 - f32(screen_pos.y)) / f32(screen_size.x);
 
   let forwards: vec3<f32> = scene.cameraForwards;
   let right: vec3<f32> = scene.cameraRight;
   let up: vec3<f32> = scene.cameraUp;
 
   var myRay: Ray;
-  myRay.direction = normalize(forwards + horizontal_coefficient * right + vertical_coefficient * up);
+  myRay.direction = normalize(forwards + ndc.x * right + ndc.y * up);
   myRay.origin = scene.cameraPos;
 
-  let pixel_color: vec3<f32> = rayColor(myRay);
-  // let pixel_color = vec3<f32>(horizontal_coefficient + 0.5, vertical_coefficient + 0.5, 0.0);
-  textureStore(color_buffer, screen_pos, vec4<f32>(pixel_color, 1.0));
+  let pixel_color: vec3<f32> = rayColor(myRay, ndc.y);
+  textureStore(color_buffer, canvas_pos, vec4<f32>(pixel_color, 1.0));
 }
 
-fn rayColor(ray: Ray) -> vec3<f32> {
+fn rayColor(ray: Ray, lerp: f32) -> vec3<f32> {
 
-  var color: vec3<f32> = vec3(0.0, 0.0, 0.0);
+  var color = mix( vec3<f32>(1.0, 1.0, 1.0), vec3<f32>(0.0, 0.0, 0.2), lerp);
 
   var nearestHit: f32 = 9999;
   var hitSomething: bool = false;
