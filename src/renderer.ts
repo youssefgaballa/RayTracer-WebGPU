@@ -300,6 +300,7 @@ export class Renderer {
     console.log(sphereDataAsU32[0],this.scene.spheres.length )
     for (let i = 0; i < this.scene.spheres.length; i++) {
       const offset = 4 + i * entryLength;
+      sphereDataAsF32[offset + 0] = this.scene.spheres[i].position[0];
       sphereDataAsF32[offset + 1] = this.scene.spheres[i].position[1];
       sphereDataAsF32[offset + 2] = this.scene.spheres[i].position[2];
       sphereDataAsF32[offset + 3] = this.scene.spheres[i].radius[0];

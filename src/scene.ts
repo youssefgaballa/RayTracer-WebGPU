@@ -39,13 +39,13 @@ export class Scene {
       [0.0, -2000.0, 0.0], 2000.0, [0.0, 0.7, 0.3]
     ));
     this.spheres.push(new Sphere(
-      [1.0, 1.0, 0.0], radius, [0.0, 1.0, 0.0]
+      [5.0, 3.0, 0.0], 3, [1.0, 1.0, 0.0]
     ));
     this.spheres.push(new Sphere(
       [0.0, 8.3, -11.0], radius, [0.0, 1.0, 0.0]
     ));
     this.spheres.push(new Sphere(
-      [-2.0, 0.5, -10], radius, [1.0, 1.0, 0.0]
+      [-2.0, 1.5, -10], radius, [1.0, 1.0, 0.0]
     ));
 
   }
