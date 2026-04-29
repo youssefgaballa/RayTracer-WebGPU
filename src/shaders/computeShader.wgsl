@@ -41,15 +41,15 @@ struct RenderData {
     image_width: u32,
     image_height: u32,
     frame_iteration: u32,
-    padding: u32,
+    isAA: u32,
 };
 
 @group(0) @binding(0) var color_buffer: texture_storage_2d<rgba8unorm, write>;
 @group(0) @binding(1) var<uniform> scene: SceneData;
 @group(0) @binding(2) var<storage, read> objects: ObjectData;
 @group(0) @binding(3) var<uniform> renderData: RenderData;
+@group(0) @binding(4) var<storage, read_write> accumulation_buffer: array<vec4<f32>>;
 
-var<private> uv: vec2<f32>;
 @compute @workgroup_size(8,8,1)
 fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
 
@@ -63,16 +63,14 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
   if (canvas_pos.x >= canvas_size.x || canvas_pos.y >= canvas_size.y) {
       return;
   }
-   
-  uv = (vec2f(GlobalInvocationID.xy) + 0.5) / vec2<f32>(canvas_size) ;
+  var uv: vec2<f32> = (vec2f(GlobalInvocationID.xy) + 0.5) / vec2<f32>(canvas_size) ;
   var seed: u32 = GlobalInvocationID.x + GlobalInvocationID.y * u32(renderData.image_width)
   + (renderData.frame_iteration * 131071u);
   let pixel_index = GlobalInvocationID.y * renderData.image_width + GlobalInvocationID.x;
   // Range( uv.x ) = [0.000625, 0.999375], texel_width == 0.000625
   // Range( uv.y ) = [0.000833333333, 0.999166667] , texel_height == 0.000833333333
-  // Note: 1 - 0.000625 == 0.999375
-  // 1 - 0.000833333333 == 0.999166667
-
+  // Note: 1 - 0.000625 == 0.999375, 1 - 0.000833333333 == 0.9991666674
+  
   var ndc: vec2<f32> = (uv * 2.0) - 1.0;
   ndc.y = -ndc.y;
   ndc.x *= aspect_ratio;
@@ -82,11 +80,55 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
   var myRay: Ray;
   myRay.origin = scene.cameraPos;
   myRay.direction = normalize(scene.cameraForwards
-   + ndc.x * scene.cameraRight 
-   + ndc.y * scene.cameraUp);
+  + ndc.x * scene.cameraRight 
+  + ndc.y * scene.cameraUp);
 
-  let pixel_color: vec3<f32> = rayColor(myRay, ndc.y, &seed);
-  textureStore(color_buffer, canvas_pos, vec4<f32>(pixel_color, 1.0));
+  if (renderData.isAA == 1u) {
+    let jitter = vec2<f32>(random_float(&seed), random_float(&seed)) - 0.5;
+    uv = (vec2f(GlobalInvocationID.xy) + 0.5 * jitter) / vec2f(canvas_size);
+    // 5. Calculate Ray (NDC space)
+    ndc = (uv * 2.0) - 1.0;
+    ndc.y = -ndc.y; // Flip Y for screen space
+    ndc.x *= aspect_ratio;
+
+    myRay.direction = normalize(
+        scene.cameraForwards + 
+        ndc.x * scene.cameraRight + 
+        ndc.y * scene.cameraUp
+    );
+    // 6. Trace the Ray
+    let new_sample_color: vec3<f32> = rayColor(myRay, ndc.y, &seed);
+
+    let pixel_index = GlobalInvocationID.y * renderData.image_width + GlobalInvocationID.x;
+    var accumulated_color: vec3<f32>;
+    // 2. Accumulation Magic
+    if (renderData.frame_iteration == 1u) {
+        // First frame: Just store the color
+        accumulated_color = new_sample_color;
+        // accumulation_buffer[pixel_index] = vec4<f32>(new_sample_color, 1.0);
+    } else {
+        // Subsequent frames: Blend with previous data
+        let old_color = accumulation_buffer[pixel_index].rgb;
+        
+        // Exponential moving average or Weighted average
+        // Using weighted average for true path tracing:
+        let weight = 1.0 / f32(renderData.frame_iteration);
+        accumulated_color = mix(old_color, new_sample_color, weight);
+        // accumulation_buffer[pixel_index] = vec4<f32>(accumulated_rgb, 1.0);
+    }
+    accumulation_buffer[pixel_index] = vec4<f32>(accumulated_color, 1.0);
+    // 3. Write to the display texture (the rgba8unorm one)
+    // You'll need a separate binding for the display texture or 
+    // a second pass to copy the buffer to the texture.
+    let display_color = pow(accumulated_color, vec3<f32>(1.0 / 2.2));
+    textureStore(color_buffer, canvas_pos, vec4<f32>(display_color, 1.0));
+  } else {
+
+
+    let pixel_color: vec3<f32> = rayColor(myRay, ndc.y, &seed);
+    textureStore(color_buffer, canvas_pos, vec4<f32>(pixel_color, 1.0));
+  }
+  
 }
 
 
@@ -111,7 +153,7 @@ fn rayColor(ray: Ray, lerp: f32, seed: ptr<function, u32>) -> vec3<f32> {
     }
     if (hitSomething) {
       let scatterDirection = random_on_hemisphere(hitRecord.normal, seed);
-      currentRay.origin = hitRecord.position;
+      currentRay.origin = hitRecord.position; // + (hitRecord.normal * 0.001);
       currentRay.direction = normalize(scatterDirection);
       throughput *= hitRecord.color * 0.5;
     } else {

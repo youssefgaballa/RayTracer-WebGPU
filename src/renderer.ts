@@ -3,6 +3,8 @@ import { Scene } from "./scene";
 import textureShader from "./shaders/TextureShader.wgsl?raw";
 import computeShader from "./shaders/computeShader.wgsl?raw";
 let frameCount = 1;
+let isAA = 1;
+let hasGammaCorrection = 1;
 export class Renderer {
   public isSupported: boolean = true;
   private canvas: HTMLCanvasElement;
@@ -16,12 +18,12 @@ export class Renderer {
 
   private scene!: Scene;
   private colorBuffer!: GPUTexture;
-  // private colorBufferView!: GPUTextureView;
   private sampler!: GPUSampler;
   private cameraBuffer!: GPUBuffer;
   private spheresBuffer!: GPUBuffer;
-  private uniformBuffer!: GPUBuffer;
-
+  private renderDataBuffer!: GPUBuffer;
+  private renderData!: Uint32Array;
+  private accumulationBuffer!: GPUBuffer;
 
   private computeBindGroupLayout!: GPUBindGroupLayout;
   private computeBindGroup!: GPUBindGroup;
@@ -57,11 +59,14 @@ export class Renderer {
   public render() {
     let start: number = performance.now();
     frameCount++;
+    this.renderData[2] = frameCount;
+    this.renderData[3] = isAA;
+
     this.device.queue.writeBuffer(
-      this.uniformBuffer,
-      8, // Offset in bytes: cavnas.width + cavnas.height = 4 + 4 = 8
-      new Uint32Array([frameCount])
-  );
+      this.renderDataBuffer,
+      0, // Offset in bytes: cavnas.width + cavnas.height = 4 + 4 = 8
+      this.renderData);
+
     // Create Command Encoder to encode commands to be sent to GPU:
     const commandEncoder: GPUCommandEncoder = this.device.createCommandEncoder({
       label: "Basic Comamnd Encoder",
@@ -194,6 +199,11 @@ export class Renderer {
           buffer: {
             type: "uniform"
           }
+        },
+        {
+          binding: 4, // @binding(4)
+          visibility: GPUShaderStage.COMPUTE,
+          buffer: { type: "storage" } 
         }
       ],
     });
@@ -216,9 +226,15 @@ export class Renderer {
         {
           binding: 3, // @binding(3)
           resource: {
-              buffer: this.uniformBuffer 
+              buffer: this.renderDataBuffer 
           }
-      }
+        },
+        {
+          binding: 4, // @binding(4)
+          resource: {
+              buffer: this.accumulationBuffer 
+          }
+        }
       ],
     });
 
@@ -330,13 +346,14 @@ export class Renderer {
       sphereDataAsF32.length
     );
 
-    const uniformData = new Uint32Array([this.canvas.width, this.canvas.height, frameCount, 0]);
-    this.device.queue.writeBuffer(this.uniformBuffer, 0, uniformData);
+    this.renderData = new Uint32Array([
+      this.canvas.width, this.canvas.height, frameCount, isAA
+    ]);
+    this.device.queue.writeBuffer(this.renderDataBuffer, 0, this.renderData);
     if (debug) {
       console.log("sphereDataAsF32: ", sphereDataAsF32)
       console.log(sphereDataAsU32[0],this.scene.spheres.length )
 
-      // console.log("cameraBufferAsF32: ", new Float32Array(this.cameraBuffer.getMappedRange()));
     }
   }
 
@@ -412,10 +429,15 @@ export class Renderer {
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
 
-    this.uniformBuffer = this.device.createBuffer({
+    this.renderDataBuffer = this.device.createBuffer({
       size: 16, 
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
+
+    this.accumulationBuffer = this.device.createBuffer({
+      size: this.canvas.width * this.canvas.height * 16,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
+  });
 
   }
 

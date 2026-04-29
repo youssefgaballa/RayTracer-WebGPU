@@ -50,3 +50,12 @@
 body {
   margin: 0;
 }
+
+#container {
+  display:flex;
+  justify-content: center;
+}
+
+#controls {
+  min-width: 40ch;
+}
