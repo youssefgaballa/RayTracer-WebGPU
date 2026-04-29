@@ -37,13 +37,15 @@ struct HitRecord {
   normal: vec3<f32>,
 }
 
-struct RenderData {
+struct RenderData { // 32
     image_width: u32,
     image_height: u32,
     frame_iteration: u32,
-    isAA: u32,
+    temporalAccumulation: u32,
     diffuseType: u32,
+    hasGammaCorrection: u32
 };
+
 
 @group(0) @binding(0) var color_buffer: texture_storage_2d<rgba8unorm, write>;
 @group(0) @binding(1) var<uniform> scene: SceneData;
@@ -84,7 +86,8 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
   + ndc.x * scene.cameraRight 
   + ndc.y * scene.cameraUp);
 
-  if (renderData.isAA == 1u) {
+  var outputColor: vec3<f32>;
+  if (renderData.temporalAccumulation == 1u) {
     let jitter = vec2<f32>(random_float(&seed), random_float(&seed)) - 0.5;
     uv = (vec2f(GlobalInvocationID.xy) + 0.5 * jitter) / vec2f(canvas_size);
     // 5. Calculate Ray (NDC space)
@@ -101,11 +104,10 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
     let new_sample_color: vec3<f32> = rayColor(myRay, &seed);
 
     let pixel_index = GlobalInvocationID.y * renderData.image_width + GlobalInvocationID.x;
-    var accumulated_color: vec3<f32>;
     // 2. Accumulation Magic
     if (renderData.frame_iteration == 1u) {
         // First frame: Just store the color
-        accumulated_color = new_sample_color;
+        outputColor = new_sample_color;
         // accumulation_buffer[pixel_index] = vec4<f32>(new_sample_color, 1.0);
     } else {
         // Subsequent frames: Blend with previous data
@@ -114,21 +116,24 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
         // Exponential moving average or Weighted average
         // Using weighted average for true path tracing:
         let weight = 1.0 / f32(renderData.frame_iteration);
-        accumulated_color = mix(old_color, new_sample_color, weight);
+        outputColor = mix(old_color, new_sample_color, weight);
         // accumulation_buffer[pixel_index] = vec4<f32>(accumulated_rgb, 1.0);
     }
-    accumulation_buffer[pixel_index] = vec4<f32>(accumulated_color, 1.0);
+    accumulation_buffer[pixel_index] = vec4<f32>(outputColor, 1.0);
     // 3. Write to the display texture (the rgba8unorm one)
     // You'll need a separate binding for the display texture or 
     // a second pass to copy the buffer to the texture.
-    let display_color = pow(accumulated_color, vec3<f32>(1.0 / 2.2));
-    textureStore(color_buffer, canvas_pos, vec4<f32>(display_color, 1.0));
+    if (renderData.hasGammaCorrection == 1) {
+      outputColor = sqrt(outputColor);
+    }
   } else {
-
-
-    let pixel_color: vec3<f32> = rayColor(myRay,  &seed);
-    textureStore(color_buffer, canvas_pos, vec4<f32>(pixel_color, 1.0));
+    outputColor = rayColor(myRay,  &seed);
+    if (renderData.hasGammaCorrection == 1) {
+      outputColor = sqrt(outputColor);
+    }
   }
+  textureStore(color_buffer, canvas_pos, vec4<f32>(outputColor, 1.0));
+
   
 }
 

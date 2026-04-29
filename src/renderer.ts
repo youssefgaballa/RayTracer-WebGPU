@@ -3,7 +3,7 @@ import { Scene } from "./scene";
 import textureShader from "./shaders/TextureShader.wgsl?raw";
 import computeShader from "./shaders/computeShader.wgsl?raw";
 let frameCount = 1;
-let isAA = 1;
+let temporalAccumulation = 0;
 const DiffuseTypes: { simpleDiffuse: number, lambertian: number; } =  {
   simpleDiffuse: 0,
   lambertian: 1
@@ -65,8 +65,9 @@ export class Renderer {
     let start: number = performance.now();
     frameCount++;
     this.renderData[2] = frameCount;
-    this.renderData[3] = isAA;
+    this.renderData[3] = temporalAccumulation;
     this.renderData[4] = diffuseType;
+    this.renderData[5] = hasGammaCorrection;
 
 
     this.device.queue.writeBuffer(
@@ -354,7 +355,7 @@ export class Renderer {
     );
 
     this.renderData = new Uint32Array([
-      this.canvas.width, this.canvas.height, frameCount, isAA, diffuseType
+      this.canvas.width, this.canvas.height, frameCount, temporalAccumulation, diffuseType, hasGammaCorrection
     ]);
     this.device.queue.writeBuffer(this.renderDataBuffer, 0, this.renderData);
     if (debug) {
