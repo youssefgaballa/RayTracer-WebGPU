@@ -3,18 +3,15 @@ import { Sphere } from "./sphere";
 
 export class Scene {
   spheres: Sphere[];
-  numSpheres: number;
   camera: Camera;
 
   constructor() {
     this.spheres = new Array(); // empty
-    this.numSpheres = this.spheres.length;
     this.camera = new Camera([1.0, 2.0, -20.0]);
   }
 
   public createRandomSpheres(num: number) {
     this.spheres.length = num;
-    this.numSpheres = num;
     for (let i = 0; i < this.spheres.length; i++) {
       const center: number[] = [
         -10.0 + 20.0 * Math.random(), // Range: [-10.0, 10.0)
@@ -35,23 +32,21 @@ export class Scene {
     }
   }
 
-  public createTwoSpheres() {
-  const radius = 0.5
-    this.spheres.length = 2;
+  public createScene1() {
+    const radius = 0.5
 
-    this.spheres[0] = new Sphere(
+    this.spheres.push(new Sphere(
       [0.0, -2000.0, 0.0], 2000.0, [0.0, 0.7, 0.3]
-    );
-    this.spheres[1] = new Sphere(
+    ));
+    this.spheres.push(new Sphere(
       [1.0, 1.0, 0.0], radius, [0.0, 1.0, 0.0]
-    );
-    this.spheres[2] = new Sphere(
+    ));
+    this.spheres.push(new Sphere(
       [0.0, 8.3, -11.0], radius, [0.0, 1.0, 0.0]
-    );
-    this.spheres[3] = new Sphere(
-      [-5.0, 0.5, -10], radius, [1.0, 1.0, 0.0]
-    );
-    this.numSpheres = this.spheres.length;
+    ));
+    this.spheres.push(new Sphere(
+      [-2.0, 0.5, -10], radius, [1.0, 1.0, 0.0]
+    ));
 
   }
 

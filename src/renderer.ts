@@ -199,6 +199,10 @@ export class Renderer {
           binding: 2, // @binding(2)
           resource: this.spheresBuffer,
         },
+        // {
+        //   binding: 3, // @binding(3)
+        //   resource: this.spheresBuffer,
+        // },
       ],
     });
 
@@ -241,6 +245,16 @@ export class Renderer {
   */
   private writeBuffers() {
     // Write to Camera Buffer:
+    const cameraStructBytes = // 64
+      4 * 3 +  // camera.position 
+      4 +      // padding 
+      4 * 3 +  // camera.forwards
+      4 +      // padding
+      4 * 3 +  // camera.right
+      4 +      // padding
+      4 * 3 +  // camera.up
+      4;       // padding
+    
     this.device.queue.writeBuffer(this.cameraBuffer, 0,
       new Float32Array([
         this.scene.camera.position[0],
@@ -258,7 +272,7 @@ export class Renderer {
         this.scene.camera.up[0],
         this.scene.camera.up[1],
         this.scene.camera.up[2],
-        this.scene.numSpheres
+        0.0
       ]),
       0, //dataOffset
       this.cameraBuffer.size / 4 // size is number of elements since this is a typed array
@@ -276,14 +290,17 @@ export class Renderer {
     // const colorOffset = 4 * 4; // 16
     // const stride = 4 * 8; // 32
     const sphereData: ArrayBuffer = new ArrayBuffer(
-      sphereStructSizeBytes * this.scene.numSpheres
+      4*4 + sphereStructSizeBytes * this.scene.spheres.length
     );
     const sphereDataAsF32: Float32Array = new Float32Array(sphereData);
-    // const sphereDataAsU32: Uint32Array = new Uint32Array(sphereData);
-    for (let i = 0; i < this.scene.numSpheres; i++) {
-      const offset = i * entryLength;
-      sphereDataAsF32[offset+ 0] = this.scene.spheres[i].position[0];
-      sphereDataAsF32[offset+ 1] = this.scene.spheres[i].position[1];
+    const sphereDataAsU32: Uint32Array = new Uint32Array(sphereData);
+    const numSpheres: Uint32Array = new Uint32Array(1);
+    numSpheres[0] = this.scene.spheres.length;
+    sphereDataAsU32[0] = numSpheres[0];
+    console.log(sphereDataAsU32[0],this.scene.spheres.length )
+    for (let i = 0; i < this.scene.spheres.length; i++) {
+      const offset = 4 + i * entryLength;
+      sphereDataAsF32[offset + 1] = this.scene.spheres[i].position[1];
       sphereDataAsF32[offset + 2] = this.scene.spheres[i].position[2];
       sphereDataAsF32[offset + 3] = this.scene.spheres[i].radius[0];
       sphereDataAsF32[offset + 4] = this.scene.spheres[i].color[0];
@@ -357,7 +374,8 @@ export class Renderer {
 
     /*
       Sphere Buffer Format: array of spheres
-      ith element buffer:
+      1st element: scene.spheres.length + 12 bytes padding
+      (i + 1)th element buffer:
       {
         scene.spheres[i].position, - 3 floats
                                     --> 4*3 == 12 bytes, offset == 0
@@ -365,13 +383,14 @@ export class Renderer {
                                   --> 4*1 == 4 bytes, offset == 12
         scene.spheres[i].color   , - 3 floats + 1 float padding
                                   --> 4*4 == 16 bytes, offset == 4*4  == 16
-      }
+      },
     */
     // cooresponds to @binding(2) in compute Shader
     this.spheresBuffer = this.device.createBuffer({
-      size: (4 * 8) * this.scene.spheres.length,
+      size: 4*4 + ((4 * 8) * this.scene.spheres.length),
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
+
   }
 
   /*
@@ -380,7 +399,7 @@ export class Renderer {
   private createScene() {
     this.scene = new Scene();
     // this.scene.createRandomSpheres(16);
-    this.scene.createTwoSpheres();
+    this.scene.createScene1();
     if (debug) {
       console.log(this.scene);
     }

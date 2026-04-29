@@ -1,11 +1,16 @@
-struct Sphere {
-  center: vec3<f32>,
+struct Sphere { // 16 bytes
+  position: vec3<f32>,
   radius: f32,
   color: vec3<f32>,
   padding: f32
 }
 
-struct ObjectData {
+struct ObjectData { // 16 + sizeof(spheres)bytes
+  sphereCount: u32,
+  // 12 bytes padding
+  p0: u32,
+  p1: u32,
+  p2: u32,
   spheres: array<Sphere>,
 }
 
@@ -22,12 +27,14 @@ struct SceneData {
   cameraRight: vec3<f32>,
   padding2: f32,
   cameraUp: vec3<f32>,
-  sphereCount: f32,
+  padding3: f32,
 }
 
 struct HitRecord {
   t: f32,
   color: vec3<f32>,
+  position: vec3<f32>,
+  normal: vec3<f32>,
 }
 
 @group(0) @binding(0) var color_buffer: texture_storage_2d<rgba8unorm, write>;
@@ -38,6 +45,7 @@ struct HitRecord {
 fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
 
   let canvas_size: vec2<i32> = vec2<i32>(textureDimensions(color_buffer));
+  let aspect_ratio: f32 = f32(canvas_size.x) / f32(canvas_size.y); //
   // canvas_size == [800, 400]
   let canvas_pos: vec2<i32> = vec2<i32>(i32(GlobalInvocationID.x), i32(GlobalInvocationID.y));
   // Range( canvas_pos.x ) = [0, 799]
@@ -54,7 +62,8 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
 
   var ndc: vec2<f32> = (uv * 2.0) - 1.0;
   ndc.y = -ndc.y;
-  // Range(ndc.x) = [-1.0, 1.0]
+  ndc.x *= aspect_ratio;
+  // Range(ndc.x) = [-1.33, 1.33]
   // Range(ndc.y) = [1.0, -1.0] // flipped because texture coords are automatically mirrored
 
   // let screen_pos: vec2<f32> = vec2<f32>(
@@ -76,34 +85,34 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
 
 fn rayColor(ray: Ray, lerp: f32) -> vec3<f32> {
 
-  var color = mix( vec3<f32>(1.0, 1.0, 1.0), vec3<f32>(0.0, 0.0, 0.2), lerp);
+  var resultColor: vec3<f32> = vec3(1.0, 1.0, 1.0);
 
   var nearestHit: f32 = 9999;
   var hitSomething: bool = false;
 
   var hitRecord: HitRecord;
-
-  for (var i: u32 = 0; i < u32(scene.sphereCount); i++) {
-      
-      if (hit(ray, objects.spheres[i], 0.001, nearestHit, &hitRecord)) {
-        nearestHit = hitRecord.t;
-        hitRecord = hitRecord;
-        hitSomething = true;
-      }
-
+  for (var i: u32 = 0; i < objects.sphereCount; i++) {
+    if (hit(ray, objects.spheres[i], 0.001, nearestHit, &hitRecord)) {
+      nearestHit = hitRecord.t;
+      hitRecord = hitRecord;
+      hitSomething = true;
+    }
   }
 
   if (hitSomething) {
-      color = hitRecord.color;
+    resultColor = hitRecord.color;
+  } else {
+    resultColor = mix( vec3<f32>(1.0, 1.0, 1.0), vec3<f32>(0.0, 0.0, 0.2), lerp);
   }
-  return color;
+  return resultColor;
+
 }
 
 fn hit(ray: Ray, sphere: Sphere, 
   tMin: f32, tMax: f32, 
   outHitRecord: ptr<function, HitRecord>
   ) -> bool  {
-  let co: vec3<f32> = ray.origin - sphere.center;
+  let co: vec3<f32> = ray.origin - sphere.position;
   let a: f32 = dot(ray.direction, ray.direction);
   let b: f32 = 2.0 * dot(ray.direction, co);
   let c: f32 = dot(co, co) - sphere.radius * sphere.radius;
@@ -115,6 +124,8 @@ fn hit(ray: Ray, sphere: Sphere,
 
       if (t > tMin && t < tMax) {
         (*outHitRecord).t = t;
+        (*outHitRecord).position = ray.origin + t * ray.direction;
+        (*outHitRecord).normal = normalize(((*outHitRecord).position - sphere.position));
         (*outHitRecord).color = sphere.color;
         return true;
       }
