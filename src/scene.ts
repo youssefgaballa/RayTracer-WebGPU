@@ -7,7 +7,7 @@ export class Scene {
 
   constructor() {
     this.spheres = new Array(); // empty
-    this.camera = new Camera([1.0, 2.0, -20.0]);
+    this.camera = new Camera([1.0, 4.0, -20.0]);
   }
 
   public createRandomSpheres(num: number) {
@@ -42,11 +42,15 @@ export class Scene {
       [5.0, 3.0, 0.0], 3, [1.0, 1.0, 0.0]
     ));
     this.spheres.push(new Sphere(
-      [0.0, 8.3, -11.0], radius, [0.0, 1.0, 0.0]
+      [-5.0, 1.5, -10], radius, [1.0, 0.2, 0.0]
     ));
     this.spheres.push(new Sphere(
-      [-2.0, 1.5, -10], radius, [1.0, 1.0, 0.0]
+      [0.0, 8.3, -11.0], radius, [0.0, 1.0, 0.0]
     ));
+    // this.spheres.push(new Sphere(
+    //   [0.0, 0.5, 5.0], radius, [0.0, 1.0, 1.0]
+    // ));
+    
 
   }
 

@@ -2,7 +2,7 @@ import { debug } from "./main";
 import { Scene } from "./scene";
 import textureShader from "./shaders/TextureShader.wgsl?raw";
 import computeShader from "./shaders/computeShader.wgsl?raw";
-
+let frameCount = 1;
 export class Renderer {
   public isSupported: boolean = true;
   private canvas: HTMLCanvasElement;
@@ -20,6 +20,8 @@ export class Renderer {
   private sampler!: GPUSampler;
   private cameraBuffer!: GPUBuffer;
   private spheresBuffer!: GPUBuffer;
+  private uniformBuffer!: GPUBuffer;
+
 
   private computeBindGroupLayout!: GPUBindGroupLayout;
   private computeBindGroup!: GPUBindGroup;
@@ -54,7 +56,12 @@ export class Renderer {
 
   public render() {
     let start: number = performance.now();
-
+    frameCount++;
+    this.device.queue.writeBuffer(
+      this.uniformBuffer,
+      8, // Offset in bytes: cavnas.width + cavnas.height = 4 + 4 = 8
+      new Uint32Array([frameCount])
+  );
     // Create Command Encoder to encode commands to be sent to GPU:
     const commandEncoder: GPUCommandEncoder = this.device.createCommandEncoder({
       label: "Basic Comamnd Encoder",
@@ -181,6 +188,13 @@ export class Renderer {
             hasDynamicOffset: false
           }
         },
+        {
+          binding: 3, // @binding(3)
+          visibility: GPUShaderStage.COMPUTE,
+          buffer: {
+            type: "uniform"
+          }
+        }
       ],
     });
 
@@ -199,10 +213,12 @@ export class Renderer {
           binding: 2, // @binding(2)
           resource: this.spheresBuffer,
         },
-        // {
-        //   binding: 3, // @binding(3)
-        //   resource: this.spheresBuffer,
-        // },
+        {
+          binding: 3, // @binding(3)
+          resource: {
+              buffer: this.uniformBuffer 
+          }
+      }
       ],
     });
 
@@ -297,7 +313,6 @@ export class Renderer {
     const numSpheres: Uint32Array = new Uint32Array(1);
     numSpheres[0] = this.scene.spheres.length;
     sphereDataAsU32[0] = numSpheres[0];
-    console.log(sphereDataAsU32[0],this.scene.spheres.length )
     for (let i = 0; i < this.scene.spheres.length; i++) {
       const offset = 4 + i * entryLength;
       sphereDataAsF32[offset + 0] = this.scene.spheres[i].position[0];
@@ -314,8 +329,13 @@ export class Renderer {
       0,
       sphereDataAsF32.length
     );
+
+    const uniformData = new Uint32Array([this.canvas.width, this.canvas.height, frameCount, 0]);
+    this.device.queue.writeBuffer(this.uniformBuffer, 0, uniformData);
     if (debug) {
       console.log("sphereDataAsF32: ", sphereDataAsF32)
+      console.log(sphereDataAsU32[0],this.scene.spheres.length )
+
       // console.log("cameraBufferAsF32: ", new Float32Array(this.cameraBuffer.getMappedRange()));
     }
   }
@@ -390,6 +410,11 @@ export class Renderer {
     this.spheresBuffer = this.device.createBuffer({
       size: 4*4 + ((4 * 8) * this.scene.spheres.length),
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+
+    this.uniformBuffer = this.device.createBuffer({
+      size: 16, 
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
   }

@@ -37,11 +37,19 @@ struct HitRecord {
   normal: vec3<f32>,
 }
 
+struct RenderData {
+    image_width: u32,
+    image_height: u32,
+    frame_iteration: u32,
+    padding: u32,
+};
+
 @group(0) @binding(0) var color_buffer: texture_storage_2d<rgba8unorm, write>;
 @group(0) @binding(1) var<uniform> scene: SceneData;
 @group(0) @binding(2) var<storage, read> objects: ObjectData;
+@group(0) @binding(3) var<uniform> renderData: RenderData;
+
 var<private> uv: vec2<f32>;
-var<private> seed: vec2<f32>;
 @compute @workgroup_size(8,8,1)
 fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
 
@@ -57,7 +65,9 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
   }
    
   uv = (vec2f(GlobalInvocationID.xy) + 0.5) / vec2<f32>(canvas_size) ;
-  seed = vec2<f32>(f32(GlobalInvocationID.x), f32(GlobalInvocationID.y));
+  var seed: u32 = GlobalInvocationID.x + GlobalInvocationID.y * u32(renderData.image_width)
+  + (renderData.frame_iteration * 131071u);
+  let pixel_index = GlobalInvocationID.y * renderData.image_width + GlobalInvocationID.x;
   // Range( uv.x ) = [0.000625, 0.999375], texel_width == 0.000625
   // Range( uv.y ) = [0.000833333333, 0.999166667] , texel_height == 0.000833333333
   // Note: 1 - 0.000625 == 0.999375
@@ -69,94 +79,54 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
   // Range(ndc.x) = [-1.33, 1.33]
   // Range(ndc.y) = [1.0, -1.0] // flipped because texture coords are automatically mirrored
 
-  // let screen_pos: vec2<f32> = vec2<f32>(
-  //   ndc.x * 0.5 * f32(canvas_size[0]),
-  //   ndc.y * 0.5 * f32(canvas_size[1])
-  // );
-
-
   var myRay: Ray;
   myRay.origin = scene.cameraPos;
   myRay.direction = normalize(scene.cameraForwards
    + ndc.x * scene.cameraRight 
    + ndc.y * scene.cameraUp);
 
-  let pixel_color: vec3<f32> = rayColor(myRay, ndc.y);
+  let pixel_color: vec3<f32> = rayColor(myRay, ndc.y, &seed);
   textureStore(color_buffer, canvas_pos, vec4<f32>(pixel_color, 1.0));
 }
 
-fn rayColor1(ray: Ray, lerp: f32) -> vec3<f32> {
 
-  var resultColor: vec3<f32> = vec3(1.0, 1.0, 1.0);
-
-  var nearestHit: f32 = 9999;
-  var hitSomething: bool = false;
-
-  var hitRecord: HitRecord;
-  for (var i: u32 = 0; i < objects.sphereCount; i++) {
-    if (hit(ray, objects.spheres[i], 0.001, nearestHit, &hitRecord)) {
-      nearestHit = hitRecord.t;
-      hitRecord = hitRecord;
-      hitSomething = true;
-      resultColor = hitRecord.color;
-    }
-  }
-
-  if (!hitSomething) {
-    resultColor = mix( vec3<f32>(1.0, 1.0, 1.0), vec3<f32>(0.0, 0.0, 0.2), lerp);
-  }
-  return resultColor;
-
-}
-
-
-fn rayColor(ray: Ray, lerp: f32) -> vec3<f32> {
+fn rayColor(ray: Ray, lerp: f32, seed: ptr<function, u32>) -> vec3<f32> {
   var throughput = vec3<f32>(1.0, 1.0, 1.0);
-  var final_color = vec3<f32>(0.0);
+  var resultingColor = vec3<f32>(0.0);
   var nearestHit: f32 = 9999;
 
-  var cur_ray: Ray = ray;
-  let max_depth: u32 = 30;
-  // var hitSomething: bool = false;
+  var currentRay: Ray = ray;
+  let maxDepth: u32 = 30;
 
-  for (var depth: u32 = 0; depth < max_depth; depth++) {
+  for (var depth: u32 = 0; depth < maxDepth; depth++) {
     var hitRecord: HitRecord;
     var nearestHit = 9999.0;
     var hitSomething = false;
 
     for (var i: u32 = 0; i < objects.sphereCount; i++) {
-      if (hit(cur_ray, objects.spheres[i], 0.001, nearestHit, &hitRecord)) {
+      if (hit(currentRay, objects.spheres[i], 0.001, nearestHit, &hitRecord)) {
         nearestHit = hitRecord.t;
         hitSomething = true;
       } 
     }
     if (hitSomething) {
-      // Target = HitPoint + Normal + RandomUnitVector
-      // let newDirection = hitRecord.position + hitRecord.normal + random_unit_vector();
-      // resultColor = resultColor * hitRecord.color;
-      let scatterDirection = random_on_hemisphere(hitRecord.normal);
-      cur_ray.origin = hitRecord.position;
-      cur_ray.direction = normalize(scatterDirection - hitRecord.position);
-      // temp_ray.direction = normalize(reflect(temp_ray.direction, hitRecord.normal));
+      let scatterDirection = random_on_hemisphere(hitRecord.normal, seed);
+      currentRay.origin = hitRecord.position;
+      currentRay.direction = normalize(scatterDirection);
       throughput *= hitRecord.color * 0.5;
     } else {
-      let unit_dir = normalize(cur_ray.direction);
-      let t = 0.5 * (unit_dir.y + 1.0);
-      let sky_color = (1.0 - t) * vec3(1.0, 1.0, 1.0) + t * vec3(0.5, 0.7, 1.0);
-      final_color = throughput * sky_color;
+      let t = 0.5 * (currentRay.direction.y + 1.0);
+      let skyColor = (1.0 - t) * vec3(1.0, 1.0, 1.0) + t * vec3(0.5, 0.7, 1.0);
+      resultingColor = throughput * skyColor;
       break;
     }
     if (max(throughput.r, max(throughput.g, throughput.b)) < 0.001) {
-            break;
+      break;
     }
 
   }
 
-  // if (!hitSomething) {
-  //   resultColor = mix( vec3<f32>(1.0, 1.0, 1.0), vec3<f32>(0.0, 0.0, 0.2), lerp);
-  // }
-  return final_color;
-
+  return resultingColor;
 }
 
 fn hit(ray: Ray, sphere: Sphere, 
@@ -183,38 +153,54 @@ fn hit(ray: Ray, sphere: Sphere,
   }
   return false;
 }
+fn pcg_hash(input: u32) -> u32 {
+    var state = input * 747796405u + 2891336453u;
+    var word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+    return (word >> 22u) ^ word;
+}
 
-fn hash(uv: vec2<f32>) -> f32 {
-    // Corrected to use WGSL vec2<f32> and fract()
-    return fract(sin(dot(uv, vec2<f32>(12.9898, 78.233))) * 43758.5453);
+// Returns a random float in [0.0, 1.0)
+fn random_float(seed: ptr<function, u32>) -> f32 {
+    *seed = pcg_hash(*seed);
+    // Divide by 2^32 - 1
+    return f32(*seed) / 4294967295.0;
 }
-// Helper to get a random float and update the seed
-fn rand() -> f32 {
-    // Uses the private global 'seed' variable
-    let r = hash(seed);
-    // Update seed for the next call in the loop
-    seed.x += 1.0;
-    seed.y += r; 
-    return r;
+
+// Returns a random float in [min, max)
+fn random_range(min: f32, max: f32, seed: ptr<function, u32>) -> f32 {
+    return min + (max - min) * random_float(seed);
 }
-fn random_unit_vector() -> vec3<f32> {
-    while (true) {
-        let p = vec3<f32>(
-            rand() * 2.0 - 1.0,
-            rand() * 2.0 - 1.0,
-            rand() * 2.0 - 1.0
-        );
-        let lensq = dot(p, p);
-        // Use a small epsilon to avoid division by zero
-        // if (lensq > 1e-5 && lensq <= 1.0) {
-        if (lensq > 0.0001 && lensq <= 1.0) {
-            return p / sqrt(lensq); // Normalizing manually
+
+// Replicating your C++ random(min, max) function
+fn random_vec3(min: f32, max: f32, seed: ptr<function, u32>) -> vec3<f32> {
+    return vec3<f32>(
+        random_range(min, max, seed),
+        random_range(min, max, seed),
+        random_range(min, max, seed)
+    );
+}
+fn length_squared(v: vec3<f32>) -> f32 {
+    return v.x * v.x + v.y * v.y + v.z * v.z;
+}
+
+// 2. Replicate random_unit_vector
+fn random_unit_vector(seed: ptr<function, u32>) -> vec3<f32> {
+    // We use a loop with a limit to prevent GPU hangs
+    for (var i = 0; i < 100; i++) {
+        let p = random_vec3(-1.0, 1.0, seed);
+        let lensq = length_squared(p);
+        
+        // Check if point is inside the unit sphere but not at the exact center
+        if (lensq > 1e-24 && lensq <= 1.0) {
+            return p / sqrt(lensq);
         }
     }
-    return vec3<f32>(0.0); // Fallback
+    return vec3<f32>(0.0, 1.0, 0.0); // Fallback
 }
-fn random_on_hemisphere(normal: vec3<f32>) -> vec3<f32> {
-    let on_unit_sphere = random_unit_vector();
+
+// 3. Replicate random_on_hemisphere
+fn random_on_hemisphere(normal: vec3<f32>, seed: ptr<function, u32>) -> vec3<f32> {
+    let on_unit_sphere = random_unit_vector(seed);
     if (dot(on_unit_sphere, normal) > 0.0) {
         return on_unit_sphere;
     } else {
