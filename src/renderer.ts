@@ -379,8 +379,8 @@ export class Renderer {
   */
   private createScene() {
     this.scene = new Scene();
-    this.scene.createRandomSpheres(16);
-    // this.scene.createTwoSpheres();
+    // this.scene.createRandomSpheres(16);
+    this.scene.createTwoSpheres();
     if (debug) {
       console.log(this.scene);
     }

@@ -39,22 +39,29 @@ struct HitRecord {
 fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
 
   let canvas_size: vec2<i32> = vec2<i32>(textureDimensions(color_buffer));
-  // canvas_size = [800, 400]
-  let canvas_pos : vec2<i32> = vec2<i32>(i32(GlobalInvocationID.x), i32(GlobalInvocationID.y));
+  // canvas_size == [800, 400]
+  let canvas_pos: vec2<i32> = vec2<i32>(i32(GlobalInvocationID.x), i32(GlobalInvocationID.y));
   // Range( canvas_pos.x ) = [0, 799]
-   // Range( canvas_pos.y ) = [0, 599]
-
+  // Range( canvas_pos.y ) = [0, 599]
   if (canvas_pos.x >= canvas_size.x || canvas_pos.y >= canvas_size.y) {
       return;
   }
+   
+  let uv: vec2<f32> = (vec2f(GlobalInvocationID.xy) + 0.5) / vec2<f32>(canvas_size) ;
+  // Range( uv.x ) = [0.000625, 0.999375], texel_width == 0.000625
+  // Range( uv.y ) = [0.000833333333, 0.999166667] , texel_height == 0.000833333333
+  // Note: 1 - 0.000625 == 0.999375
+  // 1 - 0.000833333333 == 0.999166667
 
-  let ndc = vec2<f32>(
-    (f32(canvas_pos.x) - f32(canvas_size.x) * 0.5) / (f32(canvas_size.x) * 0.5),
-    (f32(canvas_size.y) * 0.5 - f32(canvas_pos.y)) / (f32(canvas_size.y) * 0.5)
-  );
+  var ndc: vec2<f32> = (uv * 2.0) - 1.0;
+  ndc.y = -ndc.y;
   // Range(ndc.x) = [-1.0, 1.0]
   // Range(ndc.y) = [1.0, -1.0] // flipped because texture coords are automatically mirrored
 
+  // let screen_pos: vec2<f32> = vec2<f32>(
+  //   ndc.x * 0.5 * f32(canvas_size[0]),
+  //   ndc.y * 0.5 * f32(canvas_size[1])
+  // );
 
   let forwards: vec3<f32> = scene.cameraForwards;
   let right: vec3<f32> = scene.cameraRight;

@@ -9,7 +9,7 @@ export class Scene {
   constructor() {
     this.spheres = new Array(); // empty
     this.numSpheres = this.spheres.length;
-    this.camera = new Camera([0.0, 0.0, -20.0]);
+    this.camera = new Camera([1.0, 2.0, -20.0]);
   }
 
   public createRandomSpheres(num: number) {
@@ -40,13 +40,16 @@ export class Scene {
     this.spheres.length = 2;
 
     this.spheres[0] = new Sphere(
-      [-1.0, -1.0, 0.0], radius, [1.0, 0.0, 0.0]
+      [0.0, -2000.0, 0.0], 2000.0, [0.0, 0.7, 0.3]
     );
     this.spheres[1] = new Sphere(
       [1.0, 1.0, 0.0], radius, [0.0, 1.0, 0.0]
     );
     this.spheres[2] = new Sphere(
-      [9.0, 0.0, 0.0], radius, [0.0, 1.0, 0.0]
+      [0.0, 8.3, -11.0], radius, [0.0, 1.0, 0.0]
+    );
+    this.spheres[3] = new Sphere(
+      [-5.0, 0.5, -10], radius, [1.0, 1.0, 0.0]
     );
     this.numSpheres = this.spheres.length;
 
