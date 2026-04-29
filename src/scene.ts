@@ -42,7 +42,7 @@ export class Scene {
       [5.0, 3.0, 0.0], 3, [1.0, 1.0, 0.0]
     ));
     this.spheres.push(new Sphere(
-      [-5.0, 1.5, -10], radius, [1.0, 0.2, 0.0]
+      [-4.0, 1.9, -10], 2, [1.0, 0.2, 0.0]
     ));
     this.spheres.push(new Sphere(
       [0.0, 8.3, -11.0], radius, [0.0, 1.0, 0.0]

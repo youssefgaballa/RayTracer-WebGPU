@@ -42,6 +42,7 @@ struct RenderData {
     image_height: u32,
     frame_iteration: u32,
     isAA: u32,
+    diffuseType: u32,
 };
 
 @group(0) @binding(0) var color_buffer: texture_storage_2d<rgba8unorm, write>;
@@ -97,7 +98,7 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
         ndc.y * scene.cameraUp
     );
     // 6. Trace the Ray
-    let new_sample_color: vec3<f32> = rayColor(myRay, ndc.y, &seed);
+    let new_sample_color: vec3<f32> = rayColor(myRay, &seed);
 
     let pixel_index = GlobalInvocationID.y * renderData.image_width + GlobalInvocationID.x;
     var accumulated_color: vec3<f32>;
@@ -125,14 +126,14 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
   } else {
 
 
-    let pixel_color: vec3<f32> = rayColor(myRay, ndc.y, &seed);
+    let pixel_color: vec3<f32> = rayColor(myRay,  &seed);
     textureStore(color_buffer, canvas_pos, vec4<f32>(pixel_color, 1.0));
   }
   
 }
 
 
-fn rayColor(ray: Ray, lerp: f32, seed: ptr<function, u32>) -> vec3<f32> {
+fn rayColor(ray: Ray, seed: ptr<function, u32>) -> vec3<f32> {
   var throughput = vec3<f32>(1.0, 1.0, 1.0);
   var resultingColor = vec3<f32>(0.0);
   var nearestHit: f32 = 9999;
@@ -152,7 +153,13 @@ fn rayColor(ray: Ray, lerp: f32, seed: ptr<function, u32>) -> vec3<f32> {
       } 
     }
     if (hitSomething) {
-      let scatterDirection = random_on_hemisphere(hitRecord.normal, seed);
+      var scatterDirection: vec3<f32>;
+
+      if (renderData.diffuseType == 0) { // simple diffuse
+        scatterDirection = random_on_hemisphere(hitRecord.normal, seed);
+      } else if (renderData.diffuseType == 1) { // lambertian
+        scatterDirection = hitRecord.normal + random_unit_vector(seed);
+      }
       currentRay.origin = hitRecord.position; // + (hitRecord.normal * 0.001);
       currentRay.direction = normalize(scatterDirection);
       throughput *= hitRecord.color * 0.5;

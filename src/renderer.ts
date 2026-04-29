@@ -4,6 +4,11 @@ import textureShader from "./shaders/TextureShader.wgsl?raw";
 import computeShader from "./shaders/computeShader.wgsl?raw";
 let frameCount = 1;
 let isAA = 1;
+const DiffuseTypes: { simpleDiffuse: number, lambertian: number; } =  {
+  simpleDiffuse: 0,
+  lambertian: 1
+};
+let diffuseType: number = DiffuseTypes.lambertian;
 let hasGammaCorrection = 1;
 export class Renderer {
   public isSupported: boolean = true;
@@ -61,6 +66,8 @@ export class Renderer {
     frameCount++;
     this.renderData[2] = frameCount;
     this.renderData[3] = isAA;
+    this.renderData[4] = diffuseType;
+
 
     this.device.queue.writeBuffer(
       this.renderDataBuffer,
@@ -347,7 +354,7 @@ export class Renderer {
     );
 
     this.renderData = new Uint32Array([
-      this.canvas.width, this.canvas.height, frameCount, isAA
+      this.canvas.width, this.canvas.height, frameCount, isAA, diffuseType
     ]);
     this.device.queue.writeBuffer(this.renderDataBuffer, 0, this.renderData);
     if (debug) {
@@ -430,7 +437,7 @@ export class Renderer {
     });
 
     this.renderDataBuffer = this.device.createBuffer({
-      size: 16, 
+      size: 32, 
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
