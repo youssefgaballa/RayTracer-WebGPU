@@ -28,7 +28,6 @@ struct SceneData {
 struct HitRecord {
   t: f32,
   color: vec3<f32>,
-  hit: bool,
 }
 
 @group(0) @binding(0) var color_buffer: texture_storage_2d<rgba8unorm, write>;
@@ -86,13 +85,12 @@ fn rayColor(ray: Ray, lerp: f32) -> vec3<f32> {
 
   for (var i: u32 = 0; i < u32(scene.sphereCount); i++) {
       
-      var newHitRecord: HitRecord = hit(ray, objects.spheres[i], 0.001, nearestHit, hitRecord);
-
-      if (newHitRecord.hit) {
-          nearestHit = newHitRecord.t;
-          hitRecord = newHitRecord;
-          hitSomething = true;
+      if (hit(ray, objects.spheres[i], 0.001, nearestHit, &hitRecord)) {
+        nearestHit = hitRecord.t;
+        hitRecord = hitRecord;
+        hitSomething = true;
       }
+
   }
 
   if (hitSomething) {
@@ -101,30 +99,25 @@ fn rayColor(ray: Ray, lerp: f32) -> vec3<f32> {
   return color;
 }
 
-fn hit(ray: Ray, sphere: Sphere, tMin: f32, tMax: f32, oldHitRecord: HitRecord) -> HitRecord {
-  
+fn hit(ray: Ray, sphere: Sphere, 
+  tMin: f32, tMax: f32, 
+  outHitRecord: ptr<function, HitRecord>
+  ) -> bool  {
   let co: vec3<f32> = ray.origin - sphere.center;
   let a: f32 = dot(ray.direction, ray.direction);
   let b: f32 = 2.0 * dot(ray.direction, co);
   let c: f32 = dot(co, co) - sphere.radius * sphere.radius;
   let discriminant: f32 = b * b - 4.0 * a * c;
 
-  var hitRecord: HitRecord;
-  hitRecord.color = oldHitRecord.color;
-
   if (discriminant > 0.0) {
 
       let t: f32 = (-b - sqrt(discriminant)) / (2 * a);
 
       if (t > tMin && t < tMax) {
-        hitRecord.t = t;
-        hitRecord.color = sphere.color;
-        hitRecord.hit = true;
-        return hitRecord;
+        (*outHitRecord).t = t;
+        (*outHitRecord).color = sphere.color;
+        return true;
       }
   }
-
-  hitRecord.hit = false;
-  return hitRecord;
-  
+  return false;
 }

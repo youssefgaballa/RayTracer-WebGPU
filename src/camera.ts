@@ -39,7 +39,7 @@ export class Camera {
     ]);
 
     const fov_radians = (this.fov * Math.PI) / 180.0;
-    const fov_factor = Math.tan(fov_radians / 2.0);
+    // const fov_factor = Math.tan(fov_radians / 2.0);
 
     this.right = new Float32Array([0.0, 0.0, 0.0]);
     vec3.cross(this.right, [0.0, 1.0, 0.0], this.forwards);
