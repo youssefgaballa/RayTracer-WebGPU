@@ -342,7 +342,7 @@ export class Renderer {
       sphereDataAsF32[offset + 0] = this.scene.spheres[i].position[0];
       sphereDataAsF32[offset + 1] = this.scene.spheres[i].position[1];
       sphereDataAsF32[offset + 2] = this.scene.spheres[i].position[2];
-      sphereDataAsF32[offset + 3] = this.scene.spheres[i].radius[0];
+      sphereDataAsF32[offset + 3] = this.scene.spheres[i].radius;
       sphereDataAsF32[offset + 4] = this.scene.spheres[i].color[0];
       sphereDataAsF32[offset + 5] = this.scene.spheres[i].color[1];
       sphereDataAsF32[offset + 6] = this.scene.spheres[i].color[2];

@@ -45,13 +45,21 @@ struct RenderData { // 32
     diffuseType: u32,
     hasGammaCorrection: u32
 };
-
+struct BVHNode {
+    min: vec3<f32>,
+    // Using the 4th component to store metadata to keep it 16-byte aligned
+    left_child: f32, 
+    max: vec3<f32>,
+    // If > 0, it's an index to spheres[i]. If < 0, it's an index to child nodes.
+    object_index: f32, 
+}
 
 @group(0) @binding(0) var color_buffer: texture_storage_2d<rgba8unorm, write>;
 @group(0) @binding(1) var<uniform> scene: SceneData;
 @group(0) @binding(2) var<storage, read> objects: ObjectData;
 @group(0) @binding(3) var<uniform> renderData: RenderData;
 @group(0) @binding(4) var<storage, read_write> accumulation_buffer: array<vec4<f32>>;
+// @group(0) @binding(5) var<storage, read> bvh_nodes: array<BVHNode>;
 
 @compute @workgroup_size(8,8,1)
 fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
@@ -178,7 +186,8 @@ fn rayColor(ray: Ray, seed: ptr<function, u32>) -> vec3<f32> {
       break;
     }
 
-  }
+    }
+  
 
   return resultingColor;
 }
@@ -207,6 +216,54 @@ fn hit(ray: Ray, sphere: Sphere,
   }
   return false;
 }
+// fn hit_bvh(ray: Ray, t_min: f32, t_max: f32, outHit: ptr<function, HitRecord>) -> bool {
+//     var stack: array<u32, 32>; // Max depth of 32 is enough for 2^32 objects
+//     var stack_ptr: u32 = 0u;
+//     stack[stack_ptr] = 0u; // Start at root node
+//     stack_ptr++;
+
+//     var hit_anything = false;
+//     var closest_so_far = t_max;
+
+//     while (stack_ptr > 0u) {
+//         stack_ptr--;
+//         let node_idx = stack[stack_ptr];
+//         let node = bvh_nodes[node_idx];
+
+//         if (hit_aabb(ray, node.min, node.max, t_min, closest_so_far)) {
+//             if (node.object_index >= 0.0) {
+//                 // Leaf Node: Check the actual sphere
+//                 let sphere_idx = u32(node.object_index);
+//                 var temp_rec: HitRecord;
+//                 if (hit(ray, objects.spheres[sphere_idx], t_min, closest_so_far, &temp_rec)) {
+//                     hit_anything = true;
+//                     closest_so_far = temp_rec.t;
+//                     *outHit = temp_rec;
+//                 }
+//             } else {
+//                 // Internal Node: Push children to stack
+//                 stack[stack_ptr] = u32(node.left_child);
+//                 stack_ptr++;
+//                 stack[stack_ptr] = u32(node.left_child) + 1u;
+//                 stack_ptr++;
+//             }
+//         }
+//     }
+//     return hit_anything;
+// }
+// fn hit_aabb(ray: Ray, b_min: vec3<f32>, b_max: vec3<f32>, t_min: f32, t_max: f32) -> bool {
+//     let invD = 1.0 / ray.direction;
+//     let t0 = (b_min - ray.origin) * invD;
+//     let t1 = (b_max - ray.origin) * invD;
+    
+//     let t_near = min(t0, t1);
+//     let t_far = max(t0, t1);
+    
+//     let t_start = max(t_min, max(t_near.x, max(t_near.y, t_near.z)));
+//     let t_end = min(t_max, min(t_far.x, min(t_far.y, t_far.z)));
+    
+//     return t_start <= t_end;
+// }
 fn pcg_hash(input: u32) -> u32 {
     var state = input * 747796405u + 2891336453u;
     var word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
