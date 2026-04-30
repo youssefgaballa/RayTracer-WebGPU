@@ -1,4 +1,4 @@
-import { BVHNode } from "./BVH/bvhnode";
+import { BVHNode, BVHNodeData } from "./BVH/bvhnode1";
 import { Camera } from "./camera";
 import { Sphere } from "./sphere";
 import { debug } from "./main";
@@ -7,10 +7,9 @@ const debug1 = true;
 export class Scene {
   spheres: Sphere[];
   camera: Camera;
-  // nodes!: BVHNode[]
+  bvhNodes: BVHNodeData[] = [];
   sphereIndices!: number[]
-  bvh!: BVHNode;
-  bvhLength: number = 0;
+
 
   constructor() {
     this.spheres = new Array(); // empty
@@ -28,13 +27,13 @@ export class Scene {
   }
 
   public getBVHLength(tempBVH: BVHNode | null | undefined): number{
-    if (tempBVH?.left == null) {
-      if (tempBVH?.right == null) {
+    if (tempBVH?.leftChild == null) {
+      if (tempBVH?.rightChild == null) {
         return 1;
       }
       return 2;
     } else {
-      return this.getBVHLength(tempBVH.left) + this.getBVHLength(tempBVH.right);
+      return this.getBVHLength(tempBVH.leftChild) + this.getBVHLength(tempBVH.rightChild);
 
     }
   }
@@ -98,6 +97,7 @@ export class Scene {
   
   buildBVH() {
     this.bvh = new BVHNode(this.spheres, this.sphereIndices, 0, this.spheres.length);
+    this.bvhNodes = BVHNode.flatten(this.bvh);
   }
 //   buildBVH() {
 
