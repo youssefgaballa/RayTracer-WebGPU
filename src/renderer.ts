@@ -3,7 +3,7 @@ import { Scene } from "./scene";
 import textureShader from "./shaders/TextureShader.wgsl?raw";
 import computeShader from "./shaders/computeShader.wgsl?raw";
 let frameCount = 1;
-let temporalAccumulation = 0;
+let temporalAccumulation = 1;
 const DiffuseTypes: { simpleDiffuse: number, lambertian: number; } =  {
   simpleDiffuse: 0,
   lambertian: 1
@@ -29,6 +29,8 @@ export class Renderer {
   private renderDataBuffer!: GPUBuffer;
   private renderData!: Uint32Array;
   private accumulationBuffer!: GPUBuffer;
+  private nodeBuffer!: GPUBuffer;
+  private sphereIndexBuffer!: GPUBuffer;
 
   private computeBindGroupLayout!: GPUBindGroupLayout;
   private computeBindGroup!: GPUBindGroup;
@@ -212,7 +214,23 @@ export class Renderer {
           binding: 4, // @binding(4)
           visibility: GPUShaderStage.COMPUTE,
           buffer: { type: "storage" } 
-        }
+        },
+        {
+          binding: 5,
+          visibility: GPUShaderStage.COMPUTE,
+          buffer: {
+              type: "read-only-storage",
+              hasDynamicOffset: false
+          }
+        },
+        {
+            binding: 6,
+            visibility: GPUShaderStage.COMPUTE,
+            buffer: {
+                type: "read-only-storage",
+                hasDynamicOffset: false
+            }
+        },
       ],
     });
 
@@ -242,7 +260,19 @@ export class Renderer {
           resource: {
               buffer: this.accumulationBuffer 
           }
-        }
+        },
+        {
+          binding: 5,
+          resource: {
+              buffer: this.nodeBuffer,
+          }
+        },
+        {
+          binding: 6,
+          resource: {
+              buffer: this.sphereIndexBuffer,
+          }
+        },
       ],
     });
 
@@ -358,6 +388,28 @@ export class Renderer {
       this.canvas.width, this.canvas.height, frameCount, temporalAccumulation, diffuseType, hasGammaCorrection
     ]);
     this.device.queue.writeBuffer(this.renderDataBuffer, 0, this.renderData);
+
+    // const nodeData: Float32Array = new Float32Array(8 * this.scene.nodesUsed);
+    // for (let i = 0; i < this.scene.nodesUsed; i++) {
+    //     nodeData[8*i] = this.scene.nodes[i].minCorner[0];
+    //     nodeData[8*i + 1] = this.scene.nodes[i].minCorner[1];
+    //     nodeData[8*i + 2] = this.scene.nodes[i].minCorner[2];
+    //     nodeData[8*i + 3] = this.scene.nodes[i].leftChild;
+    //     nodeData[8*i + 4] = this.scene.nodes[i].maxCorner[0];
+    //     nodeData[8*i + 5] = this.scene.nodes[i].maxCorner[1];
+    //     nodeData[8*i + 6] = this.scene.nodes[i].maxCorner[2];
+    //     nodeData[8*i + 7] = this.scene.nodes[i].sphereCount;
+    // }
+    // this.device.queue.writeBuffer(this.nodeBuffer, 0, nodeData, 0, 8 * this.scene.nodesUsed);
+
+
+    // const sphereIndexData: Float32Array = new Float32Array(this.scene.spheres.length);
+    // for (let i = 0; i < this.scene.spheres.length; i++) {
+    //     sphereIndexData[i] = this.scene.sphereIndices[i];
+    // }
+    // this.device.queue.writeBuffer(this.sphereIndexBuffer, 0,
+    //   sphereIndexData, 0, this.scene.spheres.length);
+    
     if (debug) {
       console.log("sphereDataAsF32: ", sphereDataAsF32)
       console.log(sphereDataAsU32[0],this.scene.spheres.length )
@@ -445,7 +497,17 @@ export class Renderer {
     this.accumulationBuffer = this.device.createBuffer({
       size: this.canvas.width * this.canvas.height * 16,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
-  });
+    });
+    
+    this.nodeBuffer = this.device.createBuffer({
+      size: 32 * this.scene.bvhLength,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+
+    this.sphereIndexBuffer = this.device.createBuffer({
+      size: 4 * this.scene.spheres.length,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
 
   }
 
@@ -454,11 +516,7 @@ export class Renderer {
   */
   private createScene() {
     this.scene = new Scene();
-    // this.scene.createRandomSpheres(16);
-    this.scene.createScene1();
-    if (debug) {
-      console.log(this.scene);
-    }
+
   }
 
   /*
@@ -490,6 +548,7 @@ export class Renderer {
       format: this.textureFormat,
       alphaMode: "premultiplied",
     });
+    // this.device.addEventListener('uncapturederror', event => alert(event.error.message));
   }
 
   private async getGPUDevice(): Promise<boolean> {

@@ -45,13 +45,25 @@ struct RenderData { // 32
     diffuseType: u32,
     hasGammaCorrection: u32
 };
-struct BVHNode {
-    min: vec3<f32>,
-    // Using the 4th component to store metadata to keep it 16-byte aligned
-    left_child: f32, 
-    max: vec3<f32>,
-    // If > 0, it's an index to spheres[i]. If < 0, it's an index to child nodes.
-    object_index: f32, 
+// struct BVHNode {
+//     min: vec3<f32>,
+//     // Using the 4th component to store metadata to keep it 16-byte aligned
+//     left_child: f32, 
+//     max: vec3<f32>,
+//     // If > 0, it's an index to spheres[i]. If < 0, it's an index to child nodes.
+//     object_index: f32, 
+// }
+struct Node {
+    minCorner: vec3<f32>,
+    leftChild: f32,
+    maxCorner: vec3<f32>,
+    sphereCount: f32,
+}
+struct BVH {
+    nodes: array<Node>,
+}
+struct ObjectIndices {
+    sphereIndices: array<f32>,
 }
 
 @group(0) @binding(0) var color_buffer: texture_storage_2d<rgba8unorm, write>;
@@ -60,13 +72,15 @@ struct BVHNode {
 @group(0) @binding(3) var<uniform> renderData: RenderData;
 @group(0) @binding(4) var<storage, read_write> accumulation_buffer: array<vec4<f32>>;
 // @group(0) @binding(5) var<storage, read> bvh_nodes: array<BVHNode>;
+@group(0) @binding(5) var<storage, read> tree: BVH;
+@group(0) @binding(6) var<storage, read> sphereLookup: ObjectIndices;
+
 
 @compute @workgroup_size(8,8,1)
 fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
 
-  let canvas_size: vec2<i32> = vec2<i32>(textureDimensions(color_buffer));
-  // canvas_size == [800, 400]
-  let aspect_ratio: f32 = f32(canvas_size.x) / f32(canvas_size.y); //
+  let canvas_size: vec2<i32> = vec2<i32>(textureDimensions(color_buffer));  // canvas_size == [800, 400]
+  let aspect_ratio: f32 = f32(canvas_size.x) / f32(canvas_size.y);  
 
   let canvas_pos: vec2<i32> = vec2<i32>(i32(GlobalInvocationID.x), i32(GlobalInvocationID.y));
   // Range( canvas_pos.x ) = [0, 799]
@@ -186,7 +200,7 @@ fn rayColor(ray: Ray, seed: ptr<function, u32>) -> vec3<f32> {
       break;
     }
 
-    }
+  }
   
 
   return resultingColor;

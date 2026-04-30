@@ -10,5 +10,3 @@ renderer.init()
     if (!renderer.isSupported) return;
     renderer.render();
 })
-// await renderer.init();
-// renderer.render();
