@@ -43,37 +43,27 @@ struct RenderData { // 32
     frame_iteration: u32,
     temporalAccumulation: u32,
     diffuseType: u32,
-    hasGammaCorrection: u32
-};
-// struct BVHNode {
-//     min: vec3<f32>,
-//     // Using the 4th component to store metadata to keep it 16-byte aligned
-//     left_child: f32, 
-//     max: vec3<f32>,
-//     // If > 0, it's an index to spheres[i]. If < 0, it's an index to child nodes.
-//     object_index: f32, 
-// }
-struct Node {
-    minCorner: vec3<f32>,
-    leftChild: f32,
-    maxCorner: vec3<f32>,
-    sphereCount: f32,
+    hasGammaCorrection: u32,
+    showBVHBoxes: u32
+}
+
+struct BVHNode {
+    min: vec3<f32>,
+    left_child: u32, 
+    max: vec3<f32>,
+    object_index: u32, 
 }
 struct BVH {
-    nodes: array<Node>,
+    nodes: array<BVHNode>,
 }
-struct ObjectIndices {
-    sphereIndices: array<f32>,
-}
+
 
 @group(0) @binding(0) var color_buffer: texture_storage_2d<rgba8unorm, write>;
 @group(0) @binding(1) var<uniform> scene: SceneData;
 @group(0) @binding(2) var<storage, read> objects: ObjectData;
 @group(0) @binding(3) var<uniform> renderData: RenderData;
 @group(0) @binding(4) var<storage, read_write> accumulation_buffer: array<vec4<f32>>;
-// @group(0) @binding(5) var<storage, read> bvh_nodes: array<BVHNode>;
-@group(0) @binding(5) var<storage, read> tree: BVH;
-@group(0) @binding(6) var<storage, read> sphereLookup: ObjectIndices;
+@group(0) @binding(5) var<storage, read> bvh: BVH;
 
 
 @compute @workgroup_size(8,8,1)
@@ -112,7 +102,6 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
   if (renderData.temporalAccumulation == 1u) {
     let jitter = vec2<f32>(random_float(&seed), random_float(&seed)) - 0.5;
     uv = (vec2f(GlobalInvocationID.xy) + 0.5 * jitter) / vec2f(canvas_size);
-    // 5. Calculate Ray (NDC space)
     ndc = (uv * 2.0) - 1.0;
     ndc.y = -ndc.y; // Flip Y for screen space
     ndc.x *= aspect_ratio;
@@ -122,15 +111,12 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
         ndc.x * scene.cameraRight + 
         ndc.y * scene.cameraUp
     );
-    // 6. Trace the Ray
     let new_sample_color: vec3<f32> = rayColor(myRay, &seed);
 
     let pixel_index = GlobalInvocationID.y * renderData.image_width + GlobalInvocationID.x;
-    // 2. Accumulation Magic
     if (renderData.frame_iteration == 1u) {
-        // First frame: Just store the color
+        // First frame: store the color
         outputColor = new_sample_color;
-        // accumulation_buffer[pixel_index] = vec4<f32>(new_sample_color, 1.0);
     } else {
         // Subsequent frames: Blend with previous data
         let old_color = accumulation_buffer[pixel_index].rgb;
@@ -139,12 +125,9 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
         // Using weighted average for true path tracing:
         let weight = 1.0 / f32(renderData.frame_iteration);
         outputColor = mix(old_color, new_sample_color, weight);
-        // accumulation_buffer[pixel_index] = vec4<f32>(accumulated_rgb, 1.0);
     }
     accumulation_buffer[pixel_index] = vec4<f32>(outputColor, 1.0);
-    // 3. Write to the display texture (the rgba8unorm one)
-    // You'll need a separate binding for the display texture or 
-    // a second pass to copy the buffer to the texture.
+
     if (renderData.hasGammaCorrection == 1) {
       outputColor = sqrt(outputColor);
     }
@@ -155,10 +138,7 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
     }
   }
   textureStore(color_buffer, canvas_pos, vec4<f32>(outputColor, 1.0));
-
-  
 }
-
 
 fn rayColor(ray: Ray, seed: ptr<function, u32>) -> vec3<f32> {
   var throughput = vec3<f32>(1.0, 1.0, 1.0);
@@ -201,8 +181,6 @@ fn rayColor(ray: Ray, seed: ptr<function, u32>) -> vec3<f32> {
     }
 
   }
-  
-
   return resultingColor;
 }
 
@@ -308,9 +286,8 @@ fn length_squared(v: vec3<f32>) -> f32 {
     return v.x * v.x + v.y * v.y + v.z * v.z;
 }
 
-// 2. Replicate random_unit_vector
 fn random_unit_vector(seed: ptr<function, u32>) -> vec3<f32> {
-    // We use a loop with a limit to prevent GPU hangs
+    // use a loop with a limit to prevent GPU threads from being blocked
     for (var i = 0; i < 100; i++) {
         let p = random_vec3(-1.0, 1.0, seed);
         let lensq = length_squared(p);
@@ -323,7 +300,7 @@ fn random_unit_vector(seed: ptr<function, u32>) -> vec3<f32> {
     return vec3<f32>(0.0, 1.0, 0.0); // Fallback
 }
 
-// 3. Replicate random_on_hemisphere
+
 fn random_on_hemisphere(normal: vec3<f32>, seed: ptr<function, u32>) -> vec3<f32> {
     let on_unit_sphere = random_unit_vector(seed);
     if (dot(on_unit_sphere, normal) > 0.0) {

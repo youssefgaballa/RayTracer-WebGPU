@@ -10,6 +10,7 @@ const DiffuseTypes: { simpleDiffuse: number, lambertian: number; } =  {
 };
 let diffuseType: number = DiffuseTypes.lambertian;
 let hasGammaCorrection = 1;
+let showBVHBoxes = 1;
 export class Renderer {
   public isSupported: boolean = true;
   private canvas: HTMLCanvasElement;
@@ -22,15 +23,15 @@ export class Renderer {
   private fragmentShaderModule!: GPUShaderModule;
 
   private scene!: Scene;
+  private renderData!: Uint32Array;
+  private renderDataBuffer!: GPUBuffer;
+
   private colorBuffer!: GPUTexture;
   private sampler!: GPUSampler;
   private cameraBuffer!: GPUBuffer;
   private spheresBuffer!: GPUBuffer;
-  private renderDataBuffer!: GPUBuffer;
-  private renderData!: Uint32Array;
   private accumulationBuffer!: GPUBuffer;
-  private nodeBuffer!: GPUBuffer;
-  private sphereIndexBuffer!: GPUBuffer;
+  private bvhNodesBuffer!: GPUBuffer;
 
   private computeBindGroupLayout!: GPUBindGroupLayout;
   private computeBindGroup!: GPUBindGroup;
@@ -70,6 +71,7 @@ export class Renderer {
     this.renderData[3] = temporalAccumulation;
     this.renderData[4] = diffuseType;
     this.renderData[5] = hasGammaCorrection;
+    this.renderData[6] = showBVHBoxes;
 
 
     this.device.queue.writeBuffer(
@@ -223,14 +225,7 @@ export class Renderer {
               hasDynamicOffset: false
           }
         },
-        {
-            binding: 6,
-            visibility: GPUShaderStage.COMPUTE,
-            buffer: {
-                type: "read-only-storage",
-                hasDynamicOffset: false
-            }
-        },
+
       ],
     });
 
@@ -264,15 +259,10 @@ export class Renderer {
         {
           binding: 5,
           resource: {
-              buffer: this.nodeBuffer,
+              buffer: this.bvhNodesBuffer,
           }
         },
-        {
-          binding: 6,
-          resource: {
-              buffer: this.sphereIndexBuffer,
-          }
-        },
+
       ],
     });
 
@@ -385,31 +375,35 @@ export class Renderer {
     );
 
     this.renderData = new Uint32Array([
-      this.canvas.width, this.canvas.height, frameCount, temporalAccumulation, diffuseType, hasGammaCorrection
+      this.canvas.width, this.canvas.height, frameCount, temporalAccumulation, diffuseType, hasGammaCorrection, showBVHBoxes
     ]);
     this.device.queue.writeBuffer(this.renderDataBuffer, 0, this.renderData);
 
-    // const nodeData: Float32Array = new Float32Array(8 * this.scene.nodesUsed);
-    // for (let i = 0; i < this.scene.nodesUsed; i++) {
-    //     nodeData[8*i] = this.scene.nodes[i].minCorner[0];
-    //     nodeData[8*i + 1] = this.scene.nodes[i].minCorner[1];
-    //     nodeData[8*i + 2] = this.scene.nodes[i].minCorner[2];
-    //     nodeData[8*i + 3] = this.scene.nodes[i].leftChild;
-    //     nodeData[8*i + 4] = this.scene.nodes[i].maxCorner[0];
-    //     nodeData[8*i + 5] = this.scene.nodes[i].maxCorner[1];
-    //     nodeData[8*i + 6] = this.scene.nodes[i].maxCorner[2];
-    //     nodeData[8*i + 7] = this.scene.nodes[i].sphereCount;
-    // }
-    // this.device.queue.writeBuffer(this.nodeBuffer, 0, nodeData, 0, 8 * this.scene.nodesUsed);
+    // Write to BVH Nodes Buffer:
+    // we'll leave out the right child since it is not needed. I can recompute it as leftChild + 1.
+    // takes up an extra 16 bytes if I leave it in (the BVHNode will be) byte aligned to 16 bytes (vec4<f32)
+    const bvhNodesBytes = //32
+      4 * 3 +  // min -- vec3<f32>
+      4 +      // leftChild -- u32
+      4 * 3 +  // max -- vec3<f32>
+      4;       // objectIdx -- u32
+    const bvhNodesEntryLength = 8; 
+    const bvhNodeDataAsF32: Float32Array = new Float32Array(8 * this.scene.bvhNodes.length);
+    const bvhNodeDataAsU32: Uint32Array = new Uint32Array(bvhNodeDataAsF32);
 
+    for (let i = 0; i < this.scene.bvhNodes.length; i++) {
+        bvhNodeDataAsF32[bvhNodesEntryLength*i + 0] = this.scene.bvhNodes[i].min[0];
+        bvhNodeDataAsF32[bvhNodesEntryLength*i + 1] = this.scene.bvhNodes[i].min[1];
+        bvhNodeDataAsF32[bvhNodesEntryLength*i + 2] = this.scene.bvhNodes[i].min[2];
+        bvhNodeDataAsU32[bvhNodesEntryLength*i + 3] = this.scene.bvhNodes[i].leftChild;
+        bvhNodeDataAsF32[bvhNodesEntryLength*i + 4] = this.scene.bvhNodes[i].max[0];
+        bvhNodeDataAsF32[bvhNodesEntryLength*i + 5] = this.scene.bvhNodes[i].max[1];
+        bvhNodeDataAsF32[bvhNodesEntryLength*i + 6] = this.scene.bvhNodes[i].max[2];
+        bvhNodeDataAsU32[bvhNodesEntryLength*i + 7] = this.scene.bvhNodes[i].objectIdx;
+    }
+    this.device.queue.writeBuffer(this.bvhNodesBuffer, 0, bvhNodeDataAsF32, 
+      0, 8 * this.scene.bvhNodes.length);
 
-    // const sphereIndexData: Float32Array = new Float32Array(this.scene.spheres.length);
-    // for (let i = 0; i < this.scene.spheres.length; i++) {
-    //     sphereIndexData[i] = this.scene.sphereIndices[i];
-    // }
-    // this.device.queue.writeBuffer(this.sphereIndexBuffer, 0,
-    //   sphereIndexData, 0, this.scene.spheres.length);
-    
     if (debug) {
       console.log("sphereDataAsF32: ", sphereDataAsF32)
       console.log(sphereDataAsU32[0],this.scene.spheres.length )
@@ -499,15 +493,11 @@ export class Renderer {
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
     });
     
-    this.nodeBuffer = this.device.createBuffer({
-      size: 32 * this.scene.bvhLength,
+    this.bvhNodesBuffer = this.device.createBuffer({
+      size: 32 * this.scene.bvhNodes.length,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
 
-    this.sphereIndexBuffer = this.device.createBuffer({
-      size: 4 * this.scene.spheres.length,
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-    });
 
   }
 
