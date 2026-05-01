@@ -19,7 +19,7 @@ struct Ray {
   origin: vec3<f32>,
 }
 
-struct SceneData {
+struct CameraData {
   cameraPos: vec3<f32>,
   padding0: f32,
   cameraForwards: vec3<f32>,
@@ -59,7 +59,7 @@ struct BVH {
 
 
 @group(0) @binding(0) var color_buffer: texture_storage_2d<rgba8unorm, write>;
-@group(0) @binding(1) var<uniform> scene: SceneData;
+@group(0) @binding(1) var<uniform> cameraData: CameraData;
 @group(0) @binding(2) var<storage, read> objects: ObjectData;
 @group(0) @binding(3) var<uniform> renderData: RenderData;
 @group(0) @binding(4) var<storage, read_write> accumulation_buffer: array<vec4<f32>>;
@@ -93,10 +93,10 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
   // Range(ndc.y) = [1.0, -1.0] // flipped because texture coords are automatically mirrored
 
   var myRay: Ray;
-  myRay.origin = scene.cameraPos;
-  myRay.direction = normalize(scene.cameraForwards
-  + ndc.x * scene.cameraRight 
-  + ndc.y * scene.cameraUp);
+  myRay.origin = cameraData.cameraPos;
+  myRay.direction = normalize(cameraData.cameraForwards
+  + ndc.x * cameraData.cameraRight 
+  + ndc.y * cameraData.cameraUp);
 
   var outputColor: vec3<f32>;
   if (renderData.temporalAccumulation == 1u) {
@@ -107,9 +107,9 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
     ndc.x *= aspect_ratio;
 
     myRay.direction = normalize(
-        scene.cameraForwards + 
-        ndc.x * scene.cameraRight + 
-        ndc.y * scene.cameraUp
+        cameraData.cameraForwards + 
+        ndc.x * cameraData.cameraRight + 
+        ndc.y * cameraData.cameraUp
     );
     let new_sample_color: vec3<f32> = rayColor(myRay, &seed);
 

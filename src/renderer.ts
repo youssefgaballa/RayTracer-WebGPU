@@ -1,6 +1,6 @@
 import { debug } from "./main";
 import { Scene } from "./scene";
-import textureShader from "./shaders/TextureShader.wgsl?raw";
+import textureShader from "./shaders/textureShader.wgsl?raw";
 import computeShader from "./shaders/computeShader.wgsl?raw";
 let frameCount = 1;
 let temporalAccumulation = 1;
@@ -24,19 +24,25 @@ export class Renderer {
 
   private scene!: Scene;
   private renderData!: Uint32Array;
-  private renderDataBuffer!: GPUBuffer;
 
+  /* Buffers, Samplers, and Textures */
+  private renderDataBuffer!: GPUBuffer;
   private colorBuffer!: GPUTexture;
   private sampler!: GPUSampler;
   private cameraBuffer!: GPUBuffer;
   private spheresBuffer!: GPUBuffer;
   private accumulationBuffer!: GPUBuffer;
   private bvhNodesBuffer!: GPUBuffer;
+  private boxVertexBuffer!: GPUBuffer;
+  private boxIndexBuffer!: GPUBuffer;
 
+  /* Bind Groups and Bind Group Layouts */
   private computeBindGroupLayout!: GPUBindGroupLayout;
   private computeBindGroup!: GPUBindGroup;
   private textureBindGroupLayout!: GPUBindGroupLayout;
   private textureBindGroup!: GPUBindGroup;
+  private boxBindGroupLayout!: GPUBindGroupLayout;
+  private boxBindGroup!: GPUBindGroup;
 
   // Compute pipeline: 
   private computePipeline!: GPUComputePipeline;
@@ -44,6 +50,9 @@ export class Renderer {
   // Render Pipeline:
   private textureRenderPipeline!: GPURenderPipeline;
   private textureView!: GPUTextureView;
+
+  // Box Pipeline:
+  private boxPipeline!: GPURenderPipeline;
 
   private frameTimeSpan: HTMLElement = document.getElementById("frame-time") as HTMLElement;
   private fpsSpan: HTMLElement = document.getElementById("fps") as HTMLElement;
@@ -110,10 +119,23 @@ export class Renderer {
           storeOp: "store",
         },
       ],
+
     });
     renderPassEncoder.setPipeline(this.textureRenderPipeline);
     renderPassEncoder.setBindGroup(0, this.textureBindGroup);
     renderPassEncoder.draw(6, 2, 0, 0);
+
+
+    // if (this.renderData[6] === 1) { // Assuming index 6 is showBVHBoxes
+    if (showBVHBoxes) {
+      renderPassEncoder.setPipeline(this.boxPipeline);
+      // Reuse the compute bind group because it contains the BVH buffer
+      renderPassEncoder.setBindGroup(0, this.boxBindGroup); 
+      renderPassEncoder.setVertexBuffer(0, this.boxVertexBuffer);
+      renderPassEncoder.setIndexBuffer(this.boxIndexBuffer, "uint16");
+      // 24 vertices per box * number of nodes
+      renderPassEncoder.drawIndexed(24, this.scene.bvhNodes.length); 
+    }
     renderPassEncoder.end();
 
     this.device.queue.submit([
@@ -134,6 +156,7 @@ export class Renderer {
     requestAnimationFrame(() => this.render());
   }
 
+ 
   private configurePipeline() {
     /*
       Create Compute Pipeline
@@ -143,12 +166,14 @@ export class Renderer {
     });
 
     this.computePipeline = this.device.createComputePipeline({
+      label: 'computePipeline',
       layout: computePipelineLayout,
       compute: {
         module: this.computeShaderModule,
         entryPoint: "main",
       },
     });
+
 
     /*
       Create Texture Pipeline
@@ -158,7 +183,9 @@ export class Renderer {
     });
 
     this.textureRenderPipeline = this.device.createRenderPipeline({
+      label: 'textureRenderPipeline',
       layout: texturePipelineLayout,
+
       vertex: {
         module: this.vertexShaderModule,
         entryPoint: "vs",
@@ -171,7 +198,35 @@ export class Renderer {
         ],
       },
     });
+
+    /*
+      Create Box Pipeline
+    */
+    const boxPipelineLayout = this.device.createPipelineLayout({
+    bindGroupLayouts: [this.boxBindGroupLayout], // @group(0)
+    });
+    this.boxPipeline = this.device.createRenderPipeline({
+      label: 'boxPipeline',
+      layout: boxPipelineLayout,
+      vertex: {
+        module: this.vertexShaderModule, // Use the module containing vs_box
+        entryPoint: "vs_box",
+        buffers: [{
+          arrayStride: 12, // 3 floats * 4 bytes
+          attributes: [{ shaderLocation: 0, offset: 0, format: "float32x3" }]
+        }]
+      },
+      fragment: {
+        module: this.fragmentShaderModule,
+        entryPoint: "fs_box",
+        targets: [{ format: this.textureFormat }],
+      },
+      primitive: {
+        topology: "line-list", // This tells the GPU to draw lines, not triangles
+      },
+    });
   }
+
 
   /*
     Creates the bind group and bind group layouts
@@ -182,7 +237,7 @@ export class Renderer {
     this.computeBindGroupLayout = this.device.createBindGroupLayout({
       entries: [
         {
-          binding: 0, // @binding(0)
+          binding: 0, // @binding(0) - colorBuffer
           visibility: GPUShaderStage.COMPUTE,
           storageTexture: {
             access: "write-only",
@@ -191,14 +246,14 @@ export class Renderer {
           },
         },
         {
-          binding: 1, // @binding(1)
+          binding: 1, // @binding(1) - cameraBuffer
           visibility: GPUShaderStage.COMPUTE,
           buffer: {
             type: "uniform",
           }  
         },
         {
-          binding: 2, // @binding(2)
+          binding: 2, // @binding(2) - spheresBuffer
           visibility: GPUShaderStage.COMPUTE,
           buffer: {
             type: "read-only-storage",
@@ -206,19 +261,19 @@ export class Renderer {
           }
         },
         {
-          binding: 3, // @binding(3)
+          binding: 3, // @binding(3) - renderDataBuffer
           visibility: GPUShaderStage.COMPUTE,
           buffer: {
             type: "uniform"
           }
         },
         {
-          binding: 4, // @binding(4)
+          binding: 4, // @binding(4) - accumulationBuffer
           visibility: GPUShaderStage.COMPUTE,
           buffer: { type: "storage" } 
         },
         {
-          binding: 5,
+          binding: 5,// @binding(5) - bvhNodesBuffer
           visibility: GPUShaderStage.COMPUTE,
           buffer: {
               type: "read-only-storage",
@@ -279,6 +334,14 @@ export class Renderer {
           visibility: GPUShaderStage.FRAGMENT,
           texture: {},
         },
+        {
+          binding: 2,// @binding(2)
+          visibility: GPUShaderStage.VERTEX,
+          buffer: {
+              type: "read-only-storage",
+              hasDynamicOffset: false
+          }
+        },
       ],
     });
     this.textureBindGroup = this.device.createBindGroup({
@@ -291,6 +354,74 @@ export class Renderer {
         {
           binding: 1, // @binding(1)
           resource: this.colorBuffer.createView()
+        },
+        {
+          binding: 2,
+          resource: {
+              buffer: this.bvhNodesBuffer,
+          }
+        },
+      ],
+    });
+
+    this.boxBindGroupLayout = this.device.createBindGroupLayout({
+      label: 'boxBindGroupLayout',
+      entries: [
+        {
+          binding: 0, // @binding(0)
+          visibility: GPUShaderStage.FRAGMENT,
+          sampler: {},
+        },
+        {
+          binding: 1, // @binding(1) - cameraBuffer
+          visibility: GPUShaderStage.VERTEX,
+          buffer: {
+            type: "uniform",
+          }  
+        },
+        {
+          binding: 2, // @binding(2) - renderDataBuffer
+          visibility: GPUShaderStage.VERTEX,
+          buffer: {
+            type: "uniform"
+          }
+        },
+        {
+          binding: 3,// @binding(3) - bvh
+          visibility: GPUShaderStage.VERTEX,
+          buffer: {
+              type: "read-only-storage",
+              hasDynamicOffset: false
+          }
+        },
+
+       
+
+      ],
+    });
+    this.boxBindGroup = this.device.createBindGroup({
+      label: 'boxBindGroup',
+      layout: this.boxBindGroupLayout,
+      entries: [
+        {
+          binding: 0, // @binding(0)
+          resource: this.sampler,
+        },
+        {
+          binding: 1, // @binding(1)
+          resource: this.cameraBuffer,
+        },
+        {
+          binding: 2, // @binding(2)
+          resource: {
+              buffer: this.renderDataBuffer 
+          }
+        },
+        {
+          binding:3,
+          resource: {
+              buffer: this.bvhNodesBuffer,
+          }
         },
       ],
     });
@@ -421,6 +552,7 @@ export class Renderer {
     // cooresponds to @binding(0) in compute Shader,
     // cooresponds to @binding(1) in frament shader
     this.colorBuffer = this.device.createTexture({
+      label: 'colorBuffer',
       size: {
         width: this.canvas.width, // 800 px
         height: this.canvas.height, // 600 px
@@ -437,6 +569,7 @@ export class Renderer {
     // Sampler: used by the fragment shader to sample texture
     // cooresponds to @binding(0) in fragment Shader
     this.sampler = this.device.createSampler({
+      label: 'sampler',
       addressModeU: "repeat",
       addressModeV: "repeat",
       magFilter: "linear",
@@ -460,9 +593,10 @@ export class Renderer {
     */
     // cooresponds to @binding(1) in compute Shader
     this.cameraBuffer = this.device.createBuffer({
-        size: 16 * 4, // 16 * 4 ==  64
-        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-      });
+      label: 'cameraBuffer',
+      size: 16 * 4, // 16 * 4 ==  64
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
 
     /*
       Sphere Buffer Format: array of spheres
@@ -479,26 +613,57 @@ export class Renderer {
     */
     // cooresponds to @binding(2) in compute Shader
     this.spheresBuffer = this.device.createBuffer({
+      label: 'spheresBuffer',
       size: 4*4 + ((4 * 8) * this.scene.spheres.length),
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
 
+    // cooresponds to @binding(2) in compute Shader
     this.renderDataBuffer = this.device.createBuffer({
+      label: 'renderDataBuffer',
       size: 32, 
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
     this.accumulationBuffer = this.device.createBuffer({
+      label: 'accumulationBuffer',
       size: this.canvas.width * this.canvas.height * 16,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
     });
     
     this.bvhNodesBuffer = this.device.createBuffer({
+      label: 'bvhNodesBuffer',
       size: 32 * this.scene.bvhNodes.length,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
 
 
+    const unitCubeVertices = new Float32Array([
+      0, 0, 0,  1, 0, 0,  1, 1, 0,  0, 1, 0, // Bottom (indices 0,1,2,3)
+      0, 0, 1,  1, 0, 1,  1, 1, 1,  0, 1, 1  // Top    (indices 4,5,6,7)
+  ]);
+    const unitCubeIndices = new Uint16Array([
+      0, 1, 1, 2, 2, 3, 3, 0, // Bottom square
+      4, 5, 5, 6, 6, 7, 7, 4, // Top square
+      0, 4, 1, 5, 2, 6, 3, 7  // Vertical pillars
+    ]);
+  
+  // Create and upload the buffers in your Renderer class
+    this.boxVertexBuffer = this.device.createBuffer({
+        size: unitCubeVertices.byteLength,
+        usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+        mappedAtCreation: true
+    });
+    new Float32Array(this.boxVertexBuffer.getMappedRange()).set(unitCubeVertices);
+    this.boxVertexBuffer.unmap();
+    
+    this.boxIndexBuffer = this.device.createBuffer({
+        size: unitCubeIndices.byteLength,
+        usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
+        mappedAtCreation: true
+    });
+    new Uint16Array(this.boxIndexBuffer.getMappedRange()).set(unitCubeIndices);
+    this.boxIndexBuffer.unmap();
   }
 
   /*

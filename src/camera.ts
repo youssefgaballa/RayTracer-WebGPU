@@ -44,11 +44,11 @@ export class Camera {
     this.right = new Float32Array([0.0, 0.0, 0.0]);
     vec3.cross(this.right, [0.0, 1.0, 0.0], this.forwards);
     vec3.normalize(this.right, this.right); 
-    vec3.scale(this.right, this.right, fov_factor);
+    // vec3.scale(this.right, this.right, fov_factor);
 
     this.up = new Float32Array([0.0, 0.0, 0.0]);
     vec3.cross(this.up, this.forwards, this.right);
     vec3.normalize(this.up, this.up);
-    vec3.scale(this.up, this.up, fov_factor);
+    // vec3.scale(this.up, this.up, fov_factor);
   }
 }
