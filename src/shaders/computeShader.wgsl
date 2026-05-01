@@ -38,25 +38,35 @@ struct HitRecord {
 }
 
 struct RenderData { // 32
-    image_width: u32,
-    image_height: u32,
-    frame_iteration: u32,
-    temporalAccumulation: u32,
-    diffuseType: u32,
-    hasGammaCorrection: u32,
-    showBVHBoxes: u32
+  image_width: u32,
+  image_height: u32,
+  frameCount: u32,
+  temporalAccumulation: u32,
+  diffuseType: u32,
+  hasGammaCorrection: u32,
+  showBVHBoxes: u32
 }
 
 struct BVHNode {
-    min: vec3<f32>,
-    left_child: u32, 
-    max: vec3<f32>,
-    object_index: u32, 
-}
-struct BVH {
-    nodes: array<BVHNode>,
-}
+  min: vec3<f32>,
+  //padding
+  max: vec3<f32>,
+  left_child: i32, 
+  object_index: i32, 
+  depth: u32,
+  // need 48 - 36 = 12 bytes padding - 3 u32s
+  p0: u32,
+  p1: u32,
+}  // 12 * 4 = 48 bytes
 
+struct BVH {
+  numNodes: u32,
+  maxDepth: u32,
+  // 8 bytes padding
+  p1: u32,
+  p2: u32,
+  @align(16) nodes: array<BVHNode>,
+}
 
 @group(0) @binding(0) var color_buffer: texture_storage_2d<rgba8unorm, write>;
 @group(0) @binding(1) var<uniform> cameraData: CameraData;
@@ -80,7 +90,7 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
   }
   var uv: vec2<f32> = (vec2f(GlobalInvocationID.xy) + 0.5) / vec2<f32>(canvas_size) ;
   var seed: u32 = GlobalInvocationID.x + GlobalInvocationID.y * u32(renderData.image_width)
-  + (renderData.frame_iteration * 131071u);
+  + (renderData.frameCount * 131071u);
   let pixel_index = GlobalInvocationID.y * renderData.image_width + GlobalInvocationID.x;
   // Range( uv.x ) = [0.000625, 0.999375], texel_width == 0.000625
   // Range( uv.y ) = [0.000833333333, 0.999166667] , texel_height == 0.000833333333
@@ -107,24 +117,28 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
     ndc.x *= aspect_ratio;
 
     myRay.direction = normalize(
-        cameraData.cameraForwards + 
-        ndc.x * cameraData.cameraRight + 
-        ndc.y * cameraData.cameraUp
+      cameraData.cameraForwards + 
+      ndc.x * cameraData.cameraRight + 
+      ndc.y * cameraData.cameraUp
     );
     let new_sample_color: vec3<f32> = rayColor(myRay, &seed);
 
     let pixel_index = GlobalInvocationID.y * renderData.image_width + GlobalInvocationID.x;
-    if (renderData.frame_iteration == 1u) {
-        // First frame: store the color
-        outputColor = new_sample_color;
+    if (renderData.frameCount == 1u) {
+      // First frame: store the color
+      outputColor = new_sample_color;
     } else {
-        // Subsequent frames: Blend with previous data
-        let old_color = accumulation_buffer[pixel_index].rgb;
-        
-        // Exponential moving average or Weighted average
-        // Using weighted average for true path tracing:
-        let weight = 1.0 / f32(renderData.frame_iteration);
-        outputColor = mix(old_color, new_sample_color, weight);
+      // Subsequent frames: Blend with previous data
+      let old_color = accumulation_buffer[pixel_index].rgb;
+      
+      /*
+        Weighed Average
+        When frameCount is 1, output color is weighed completely
+        towards old_color which on that frame is just the buffer
+        from frame 0. 
+      */
+      let weight = 1.0 / f32(renderData.frameCount);
+      outputColor = mix(old_color, new_sample_color, weight);
     }
     accumulation_buffer[pixel_index] = vec4<f32>(outputColor, 1.0);
 
@@ -208,26 +222,26 @@ fn hit(ray: Ray, sphere: Sphere,
   }
   return false;
 }
-// fn hit_bvh(ray: Ray, t_min: f32, t_max: f32, outHit: ptr<function, HitRecord>) -> bool {
+// fn hit_bvh(ray: Ray, ray_t_min: f32, ray_t_max: f32, outHit: ptr<function, HitRecord>) -> bool {
 //     var stack: array<u32, 32>; // Max depth of 32 is enough for 2^32 objects
 //     var stack_ptr: u32 = 0u;
 //     stack[stack_ptr] = 0u; // Start at root node
 //     stack_ptr++;
 
 //     var hit_anything = false;
-//     var closest_so_far = t_max;
+//     var closest_so_far = ray_t_max;
 
 //     while (stack_ptr > 0u) {
 //         stack_ptr--;
 //         let node_idx = stack[stack_ptr];
-//         let node = bvh_nodes[node_idx];
+//         let node = bvh.nodes[node_idx];
 
-//         if (hit_aabb(ray, node.min, node.max, t_min, closest_so_far)) {
+//         if (hit_aabb(ray, node.min, node.max, ray_t_min, closest_so_far)) {
 //             if (node.object_index >= 0.0) {
 //                 // Leaf Node: Check the actual sphere
 //                 let sphere_idx = u32(node.object_index);
 //                 var temp_rec: HitRecord;
-//                 if (hit(ray, objects.spheres[sphere_idx], t_min, closest_so_far, &temp_rec)) {
+//                 if (hit(ray, objects.spheres[sphere_idx], ray_t_min, closest_so_far, &temp_rec)) {
 //                     hit_anything = true;
 //                     closest_so_far = temp_rec.t;
 //                     *outHit = temp_rec;
@@ -242,6 +256,24 @@ fn hit(ray: Ray, sphere: Sphere,
 //         }
 //     }
 //     return hit_anything;
+// }
+
+// fn hit_aabb(ray: Ray, ray_t_min: f32, ray_t_max: f32, 
+//   node_min: vec3<f32>, node_max: vec3<f32>) -> bool {
+//   let invD = 1.0 / ray.direction;
+//   // t0 is the intersection vector of the ray with the node's min axis
+//   let t0 = (node_min - ray.origin) * invD;
+//   // t1 is the intersection vector of the ray with the node's min axis
+//   let t1 = (node_min - ray.origin) * invD;
+//   // each component represents the intersection of the ray on the box along a certain axis
+  
+//   let t_near = min(t0, t1);
+//   let t_far = max(t0, t1);
+  
+//   let t_start = max(ray_t_min, max(t_near.x, max(t_near.y, t_near.z)));
+//   let t_end = min(ray_t_max, min(t_far.x, min(t_far.y, t_far.z)));
+  
+//   return t_start <= t_end;
 // }
 // fn hit_aabb(ray: Ray, b_min: vec3<f32>, b_max: vec3<f32>, t_min: f32, t_max: f32) -> bool {
 //     let invD = 1.0 / ray.direction;

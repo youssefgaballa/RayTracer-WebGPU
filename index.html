@@ -8,13 +8,33 @@
 </head>
 <body>
 <div id="container">
+  <div id="diagnostics">
+
+    <h4>ms per frame: <span id="frame-time"></span> ms</h4>
+    <h4>Frames per Second: <span id="fps"></span></h4>
+  </div>
   <div id="canvas-container">
     <h1 id="fallback"></h1>
     <canvas id="GLCanvas" width="1000" height="800"></canvas>
   </div>
   <div id="controls">
-    <h4>ms per frame: <span id="frame-time"></span> ms</h4>
-    <h4>Frames per Second: <span id="fps"></span></h4>
+    
+    <button id="temporalAccumulation-btn" class="toggle-btn active">Toggle Temporal Accumulation</button>
+    
+    <div class="control-group">
+      <label for="diffuseType">Diffuse type: </label>
+      <br/>
+      <select name="diffuseType" id="diffuseType">
+        <option value="0" selected>Simple Diffuse</option>
+        <option value="1">Lambertian</option>
+
+      </select>
+    </div>
+
+    <button id="hasGammaCorrection-btn" class="toggle-btn active">Toggle Gamma Correction</button>
+    </br>
+    <button id="showBVHBoxes-btn" class="toggle-btn active">Toggle BVH Boxes</button>
+
   </div>
 </div>
 </body>

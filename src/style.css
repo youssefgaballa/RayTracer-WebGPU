@@ -2,6 +2,7 @@
   --text: #6b6375;
   --text-h: #08060d;
   --bg: #fff;
+  --active-bg: #afffba;
   --border: #e5e4e7;
   --code-bg: #f4f3ec;
   --accent: #aa3bff;
@@ -35,6 +36,7 @@
     --text: #9ca3af;
     --text-h: #f3f4f6;
     --bg: #16171d;
+    --active-bg: #073a00;
     --border: #2e303a;
     --code-bg: #1f2028;
     --accent: #c084fc;
@@ -50,12 +52,41 @@
 body {
   margin: 0;
 }
-
+.toggle-btn {
+  padding: 0.4rem;
+  background-color: var(--bg);
+  margin-top: 0.3rem;
+}
+.toggle-btn.active {
+  background-color: var(--active-bg);
+}
 #container {
   display:flex;
   justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.8rem;
+}
+#canvas-container {
+  display:flex;
+  justify-content: center;
+  /* margin-top: 0.3rem; */
 }
 
 #controls {
-  min-width: 40ch;
+  font-size: clamp(0.2rem, 1vw, 1rem);
+
+}
+.control-group {
+  border: 1px solid black;
+  padding: 0.5rem;
+  margin-top:0.5rem;
+}
+#diagnostics {
+  min-width: 25ch;
+  text-align: right;
+  font-size: clamp(0.2rem, 0.8vw, 1rem);
+}
+
+#diffuseType {
+  margin-bottom: 2.0rem;
 }

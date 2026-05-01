@@ -42,5 +42,10 @@ export class Interval {
     this.min = this.min - padding;
     this.max = this.max + padding;
   }
+  clamp(num: number): number {
+    if (num < this.min) return this.min;
+    if (num > this.max) return this.max;
+    return num;
+}
 
 }
