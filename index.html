@@ -10,8 +10,8 @@
 <div id="container">
   <div id="diagnostics">
 
-    <h4>ms per frame: <span id="frame-time"></span> ms</h4>
-    <h4>Frames per Second: <span id="fps"></span></h4>
+    <h4>ms / frame: <span id="frame-time"></span> ms</h4>
+    <h4>Frames / Second: <span id="fps"></span></h4>
   </div>
   <div id="canvas-container">
     <h1 id="fallback"></h1>
@@ -23,13 +23,12 @@
     </div>
     <div class="control-group">
       <label for="numSpheres">Number of Spheres: <span id="numSpheres-val"></span></label> </br>
-      <input type="range" id="numSpheres" class="range" name="numSpheres" min="2" max="500" value="5">
+      <input type="range" id="numSpheres" class="range" name="numSpheres" min="2" max="750" value="5">
     </div>
 
   </div>
   <div id="controls">
     
-    <button id="temporalAccumulation-btn" class="toggle-btn active">Toggle Temporal Accumulation</button>
     <button id="hasGammaCorrection-btn" class="toggle-btn active">Toggle Gamma Correction</button>
 
     <div class="control-group">
@@ -48,6 +47,13 @@
       <button id="showBVHBoxes-btn" class="toggle-btn active">Toggle BVH Boxes Visual</button>
       <button id="hideRootBVHBox-btn" class="toggle-btn active">Hide Root BVH Boxes</button>
       <button id="depthBVH-btn" class="toggle-btn active">Depth test on BVH</button> 
+    </div>
+    <div class="control-group">
+      <h3>Acceleration Structures</h3>
+      <button id="temporalAccumulation-btn" class="toggle-btn active">Toggle Temporal Accumulation</button>
+      <button id="accumulateFrames-btn" class="toggle-btn">Accumulate Frames</button>
+
+     
     </div>
     <div class="control-group">
       <h3>Scene Controls</h3>

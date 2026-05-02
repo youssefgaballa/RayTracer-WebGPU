@@ -68,7 +68,19 @@ export class aabb {
     }
 
   }
+  center() {
+    return new Float32Array([0.5 * this.x.size(),0.5 * this.y.size(),0.5 * this.z.size()])
+  }
+  surfaceArea(): number {
+    // Calculate the length of each side
+    const w = this.x.max - this.x.min;
+    const h = this.y.max - this.y.min;
+    const d = this.z.max - this.z.min;
 
-  
+    // Ensure we don't return negative area if the box is uninitialized
+    if (w < 0 || h < 0 || d < 0) return 0;
+
+    return 2 * (w * h + h * d + d * w);
+}
 
 }

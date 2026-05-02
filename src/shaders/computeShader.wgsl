@@ -49,7 +49,8 @@ struct RenderData { // 32
   hasGammaCorrection: u32,
   showBVHBoxes: u32,
   hideRootBVHBox: u32,
-  depthTestBVH: u32
+  depthTestBVH: u32,
+  useBVH: u32,
 }
 
 struct BVHNode {
@@ -57,10 +58,10 @@ struct BVHNode {
   containsRoot: f32,
   max: vec3<f32>,
   p1: f32,
-  left_child: f32, 
+  left_child: f32,
+  right_child: f32,  
   object_index: f32, 
   depth: f32,
-  p2: f32,
 }  // 12 * 4 = 48 bytes. aligned to 16 bytes = sizeof(vec3f)
 struct BVH {
   numNodes: f32,
@@ -88,8 +89,7 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
   let aspect_ratio: f32 = f32(canvas_size.x) / f32(canvas_size.y);  
 
   let canvas_pos: vec2<i32> = vec2<i32>(i32(GlobalInvocationID.x), i32(GlobalInvocationID.y));
-  // Range( canvas_pos.x ) = [0, 799]
-  // Range( canvas_pos.y ) = [0, 599]
+
   if (canvas_pos.x >= canvas_size.x || canvas_pos.y >= canvas_size.y) {
       return;
   }
@@ -97,17 +97,11 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
   var seed: u32 = GlobalInvocationID.x + GlobalInvocationID.y * u32(renderData.image_width)
   + (renderData.frameCount * 131071u);
   let pixel_index = GlobalInvocationID.y * renderData.image_width + GlobalInvocationID.x;
-  // Range( uv.x ) = [0.000625, 0.999375], texel_width == 0.000625
-  // Range( uv.y ) = [0.000833333333, 0.999166667] , texel_height == 0.000833333333
-  // Note: 1 - 0.000625 == 0.999375, 1 - 0.000833333333 == 0.9991666674
+
   
   var ndc: vec2<f32> = (uv * 2.0) - 1.0;
-  ndc.y = -ndc.y;
-  // ndc.x *= aspect_ratio;
-  // Range(ndc.x) = [-1.33, 1.33]
-  // Range(ndc.y) = [1.0, -1.0] // flipped because texture coords are automatically mirrored
-  // let fov_factor: f32 = tan(radians(75.0) / 2.0);
-  // let invVP = inverse(cameraData.viewProjectionMatrix);
+  ndc.y = -ndc.y; // Range(ndc.y) = [1.0, -1.0] <-- flipped because texture coords are automatically mirrored
+
   /*
     box shader converts from world coordinates to ndc in vertex shader
     Need to convert from ndc to world coordinates so that it is synchronized with the
@@ -119,7 +113,6 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
   var myRay: Ray;
   myRay.origin = cameraData.cameraPos;
   myRay.direction = normalize(world_pos - myRay.origin);
-
 
   var outputColor: vec3<f32>;
   var resultHitRecord: HitRecord;
@@ -190,13 +183,33 @@ fn rayColor(ray: Ray, seed: ptr<function, u32>) -> HitRecord {
     var nearestHit = 10000.0;
     var hitSomething = false;
 
-    for (var i: u32 = 0; i < objects.sphereCount; i++) {
-      if (hit(currentRay, objects.spheres[i], 0.001, nearestHit, &hitRecord)) {
+    if (renderData.useBVH == 0){
+      for (var i: u32 = 0; i < objects.sphereCount; i++) {
+        if (hit(currentRay, objects.spheres[i], 0.001, nearestHit, &hitRecord)) {
+          nearestHit = hitRecord.t;
+          hitSomething = true;
+          hitRecord.hitAnything = 1;
+        } 
+      }
+    } else if (renderData.useBVH == 1) {
+      if (hit_bvh(currentRay, 0.001, nearestHit, &hitRecord)) {
         nearestHit = hitRecord.t;
         hitSomething = true;
         hitRecord.hitAnything = 1;
-      } 
+      }
     }
+    // if (hit_bvh(currentRay, 0.001, nearestHit, &hitRecord)) {
+    //     nearestHit = hitRecord.t;
+    //     hitSomething = true;
+    //     hitRecord.hitAnything = 1;
+    //   }
+    // for (var i: u32 = 0; i < objects.sphereCount; i++) {
+    //     if (hit(currentRay, objects.spheres[i], 0.001, nearestHit, &hitRecord)) {
+    //       nearestHit = hitRecord.t;
+    //       hitSomething = true;
+    //       hitRecord.hitAnything = 1;
+    //     } 
+    //   }
     if (hitSomething) {
       var scatterDirection: vec3<f32>;
       if (!firstHitCaptured) {
@@ -257,59 +270,82 @@ fn hit(ray: Ray, sphere: Sphere,
   }
   return false;
 }
-// fn hit_bvh(ray: Ray, ray_t_min: f32, ray_t_max: f32, outHit: ptr<function, HitRecord>) -> bool {
-//     var stack: array<u32, 32>; // Max depth of 32 is enough for 2^32 objects
-//     var stack_ptr: u32 = 0u;
-//     stack[stack_ptr] = 0u; // Start at root node
-//     stack_ptr++;
-
-//     var hit_anything = false;
-//     var closest_so_far = ray_t_max;
-
-//     while (stack_ptr > 0u) {
-//         stack_ptr--;
-//         let node_idx = stack[stack_ptr];
-//         let node = bvh.nodes[node_idx];
-
-//         if (hit_aabb(ray, node.min, node.max, ray_t_min, closest_so_far)) {
-//             if (node.object_index >= 0.0) {
-//                 // Leaf Node: Check the actual sphere
-//                 let sphere_idx = u32(node.object_index);
-//                 var temp_rec: HitRecord;
-//                 if (hit(ray, objects.spheres[sphere_idx], ray_t_min, closest_so_far, &temp_rec)) {
-//                     hit_anything = true;
-//                     closest_so_far = temp_rec.t;
-//                     *outHit = temp_rec;
-//                 }
-//             } else {
-//                 // Internal Node: Push children to stack
-//                 stack[stack_ptr] = u32(node.left_child);
-//                 stack_ptr++;
-//                 stack[stack_ptr] = u32(node.left_child) + 1u;
-//                 stack_ptr++;
-//             }
-//         }
-//     }
-//     return hit_anything;
-// }
-
-// fn hit_aabb(ray: Ray, ray_t_min: f32, ray_t_max: f32, 
-//   node_min: vec3<f32>, node_max: vec3<f32>) -> bool {
-//   let invD = 1.0 / ray.direction;
-//   // t0 is the intersection vector of the ray with the node's min axis
-//   let t0 = (node_min - ray.origin) * invD;
-//   // t1 is the intersection vector of the ray with the node's min axis
-//   let t1 = (node_min - ray.origin) * invD;
-//   // each component represents the intersection of the ray on the box along a certain axis
+fn hit_bvh(ray: Ray, ray_t_min: f32, ray_t_max: f32, outHitRecord: ptr<function, HitRecord>) -> bool {
+  var stack: array<u32, 128>; // Max depth of 32 is enough for 2^32 objects
+  var stackPtr: u32 = 0u;
+  stack[stackPtr] = 0u; // Start at root node
+  stackPtr++;
   
-//   let t_near = min(t0, t1);
-//   let t_far = max(t0, t1);
+  var tClosest = ray_t_max;
+  var hitAnything = false;
+  let invD = 1.0 / ray.direction;
+
+  while (stackPtr > 0u) {
+    stackPtr--;
+    let node_idx = stack[stackPtr];
+    let node = bvh.nodes[node_idx];
+    
+    let d = hit_aabb_dist(ray, invD, node.min, node.max, ray_t_min, tClosest);
+    if (d >= 1e30) { continue; }
+
+    if (node.object_index != -1.0) { 
+      var tempHit: HitRecord;
+      if (hit(ray, objects.spheres[u32(node.object_index)], ray_t_min, tClosest, &tempHit)) {
+          tClosest = tempHit.t;
+          *outHitRecord = tempHit;
+          hitAnything = true;
+      }
+    } else {
+      // Push children. 
+      // If you want a cheap optimization without extra AABB math:
+      // Push Right then Left. This ensures Left is processed first.
+      stack[stackPtr] = u32(node.right_child);
+      stackPtr++;
+      stack[stackPtr] = u32(node.left_child);
+      stackPtr++;
+    }
+   
+  }
+  return hitAnything;
+}
+fn hit_aabb_dist(ray: Ray, invD: vec3<f32>, n_min: vec3<f32>, n_max: vec3<f32>, t_min: f32, t_max: f32) -> f32 {
+    let t0 = (n_min - ray.origin) * invD;
+    let t1 = (n_max - ray.origin) * invD;
+    let t_near = min(t0, t1);
+    let t_far = max(t0, t1);
+    
+    let t_enter = max(max(t_near.x, t_near.y), t_near.z);
+    let t_exit = min(min(t_far.x, t_far.y), t_far.z);
+    
+    if (t_exit >= max(t_enter, t_min) && t_enter <= t_max) {
+        return t_enter;
+    }
+    return 1e30; // "Infinity"
+}
+fn hit_aabb(ray: Ray, invD: vec3<f32>, node_min: vec3<f32>, node_max: vec3<f32>,
+  ray_t_min: f32, ray_t_max: f32, outHitRecord: ptr<function, HitRecord>
+  ) -> bool {
+  // t0 is the intersection vector of the ray with the node's min axis
+  let t0 = (node_min - ray.origin) * invD;
+  // t1 is the intersection vector of the ray with the node's min axis
+  let t1 = (node_max - ray.origin) * invD;
+  // each component represents the intersection of the ray on the box along a certain axis
   
-//   let t_start = max(ray_t_min, max(t_near.x, max(t_near.y, t_near.z)));
-//   let t_end = min(ray_t_max, min(t_far.x, min(t_far.y, t_far.z)));
+  let t_near = min(t0, t1);
+  let t_far = max(t0, t1);
   
-//   return t_start <= t_end;
-// }
+  // let t_start = max(ray_t_min, max(t_near.x, max(t_near.y, t_near.z)));
+  // let t_end = min(ray_t_max, min(t_far.x, min(t_far.y, t_far.z)));
+  
+  // return t_start <= t_end;
+  let t_enter = max(max(t_near.x, t_near.y), t_near.z);
+  let t_exit = min(min(t_far.x, t_far.y), t_far.z);
+  if (t_exit >= max(t_enter, ray_t_min) && t_enter <= ray_t_max) {
+    outHitRecord.t = t_enter;
+    return true;
+  }
+  return false;
+}
 // fn hit_aabb(ray: Ray, b_min: vec3<f32>, b_max: vec3<f32>, t_min: f32, t_max: f32) -> bool {
 //     let invD = 1.0 / ray.direction;
 //     let t0 = (b_min - ray.origin) * invD;
@@ -376,3 +412,76 @@ fn random_on_hemisphere(normal: vec3<f32>, seed: ptr<function, u32>) -> vec3<f32
         return -on_unit_sphere;
     }
 }
+
+ // let leftChild = u32(node.left_child);
+    // let rightChild = u32(node.right_child);
+    // var tempHitRecord: HitRecord;
+    // if (!hit_aabb(ray, invD, node.min, node.max, ray_t_min, tMin, &tempHitRecord)) {
+    //   continue;
+    // }
+    // if (hit_aabb(ray, node.min, node.max, ray_t_min, tMin)) {
+    //   if (node.object_index >= 0.0) {
+    //     // Leaf Node: Check the actual sphere
+    //     let sphere_idx = u32(node.object_index);
+    //     var temp_rec: HitRecord;
+    //     if (hit(ray, objects.spheres[sphere_idx], ray_t_min, tMin, &temp_rec)) {
+    //         hit_anything = true;
+    //         tMin = temp_rec.t;
+    //         *outHit = temp_rec;
+    //     }
+    //   } else {
+    //     // Internal Node: Push children to stack
+    //     stack[stackPtr] = u32(node.left_child);
+    //     stackPtr++;
+    //     stack[stackPtr] = u32(node.left_child) + 1u;
+    //     stackPtr++;
+    //   }
+    // }
+    // 2. If it's a leaf node (left_child == -1 or similar logic)
+    // In your structure, leaf nodes usually have a valid objectIdx
+    // if (node.object_index != -1) { 
+    //   if (hit(ray, objects.spheres[u32(node.object_index)], ray_t_min, tMin, &tempHitRecord)) {
+    //     tMin = tempHitRecord.t;
+    //     *outHitRecord = tempHitRecord;
+    //     hitAnything = true;
+    //   }
+    // } else {
+      // 3. It's an internal node, add children to the stack
+      // Optimization: Add the child likely to be hit last first (so closer one is processed first)
+      // stack[stackPtr] = u32(node.left_child) + 1u; // Right child
+      // stackPtr++;
+      // stack[stackPtr] = u32(node.left_child);      // Left child
+      // stackPtr++;
+      // hit_aabb(ray, invD, bvh.nodes[leftChild].min, bvh.nodes[leftChild].max, ray_t_min, tMin, &tempHitRecord);
+      // let leftChildDistance = tempHitRecord.t;
+      // hit_aabb(ray, invD, bvh.nodes[rightChild].min, bvh.nodes[rightChild].max,  ray_t_min, tMin, &tempHitRecord);
+      // let rightChildDistance = tempHitRecord.t;
+
+      // if (leftChildDistance < rightChildDistance) {
+      //   // stack[stackPtr] = rightChild; // Push right
+      //   // stackPtr++;
+      //   // stack[stackPtr] = leftChild;      // Push left (pops first)
+      //   // stackPtr++;
+      //   if (rightChildDistance < 1e30) {
+      //     stack[stackPtr] = rightChild;
+      //     stackPtr++;
+      //   }
+      //   if (leftChildDistance < 1e30) {
+      //     stack[stackPtr] = leftChild;
+      //     stackPtr++;
+      //   }
+      // } else {
+      //   // stack[stackPtr] = leftChild;
+      //   // stackPtr++;
+      //   // stack[stackPtr] = rightChild;
+      //   // stackPtr++;
+      //   if (leftChildDistance < 1e30) {
+      //     stack[stackPtr] = leftChild;
+      //     stackPtr++;
+      //   }
+      //   if (rightChildDistance < 1e30) {
+      //     stack[stackPtr] = rightChild;
+      //     stackPtr++;
+      //   }
+      // }
+    // }

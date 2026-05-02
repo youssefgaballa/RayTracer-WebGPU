@@ -29,6 +29,10 @@ export class Renderer {
   private toggleTemporalAccumulationBtn: HTMLButtonElement 
   = document.getElementById("temporalAccumulation-btn") as HTMLButtonElement;
 
+  private accumulateFrames = 0;
+  private toggleAccumulateFramesBtn: HTMLButtonElement 
+  = document.getElementById("accumulateFrames-btn") as HTMLButtonElement;
+
   private diffuseType!: number;
   private toggleDiffuseTypeBtn: HTMLSelectElement 
     = document.getElementById("diffuseType") as HTMLSelectElement;
@@ -40,6 +44,10 @@ export class Renderer {
   /*
 
   */
+  private toggleBVH = 0;
+  private toggleBVHBtn: HTMLButtonElement 
+    = document.getElementById("toggleBVH-btn") as HTMLButtonElement;
+
   private showBVHBoxes = 0;
   private toggleShowBVHBoxesBtn: HTMLButtonElement 
     = document.getElementById("showBVHBoxes-btn") as HTMLButtonElement;
@@ -108,8 +116,10 @@ export class Renderer {
   public registerEventListeners() {
     // early return if the buttons arent in the document (shouldnt happen)
     if (this.toggleTemporalAccumulationBtn == null
+      || this.toggleAccumulateFramesBtn == null
       || this.toggleDiffuseTypeBtn == null
       || this.toggleHasGammaCorrectionnBtn == null
+      || this.toggleBVHBtn == null
       || this.toggleShowBVHBoxesBtn == null
       || this.toggleHideRootBVHBoxBtn == null
       || this.toggleDepthTestBVHBtn == null
@@ -120,13 +130,20 @@ export class Renderer {
     this.temporalAccumulation = 
       this.toggleTemporalAccumulationBtn.classList.contains("active") ? 1 : 0;
 
+    this.accumulateFrames = 
+    this.toggleAccumulateFramesBtn.classList.contains("active") ? 1 : 0;
+
     this.diffuseType = parseInt(this.toggleDiffuseTypeBtn.value);
 
     this.hasGammaCorrection 
     = this.toggleHasGammaCorrectionnBtn.classList.contains("active") ? 1 : 0;
 
+    this.toggleBVH 
+    = this.toggleBVHBtn.classList.contains("active") ? 1 : 0;
+
     this.showBVHBoxes 
     = this.toggleShowBVHBoxesBtn.classList.contains("active") ? 1 : 0;
+    
 
     this.hideRootBVHBox 
     = this.toggleHideRootBVHBoxBtn.classList.contains("active") ? 1 : 0;
@@ -140,6 +157,11 @@ export class Renderer {
       this.temporalAccumulation = this.temporalAccumulation == 0 ? 1: 0;
       Renderer.frameCount = 0;
     });
+    this.toggleAccumulateFramesBtn.addEventListener('click', () => {
+      this.toggleAccumulateFramesBtn?.classList.toggle('active');
+      this.accumulateFrames = this.accumulateFrames == 0 ? 1: 0;
+      Renderer.frameCount = 0;
+    });
     this.toggleDiffuseTypeBtn.addEventListener('change', (event: Event) => {
       // console.log('Selected value:', event.target.value);
       const target = event.target as HTMLSelectElement;
@@ -149,6 +171,11 @@ export class Renderer {
       this.toggleHasGammaCorrectionnBtn?.classList.toggle('active');
       this.hasGammaCorrection = this.hasGammaCorrection == 0 ? 1: 0;
       // this.frameCount = 0;
+    });
+
+    this.toggleBVHBtn.addEventListener('click', () => {
+      this.toggleBVHBtn?.classList.toggle('active');
+      this.toggleBVH = this.toggleBVH == 0 ? 1: 0;
     });
     this.toggleShowBVHBoxesBtn.addEventListener('click', () => {
       this.toggleShowBVHBoxesBtn?.classList.toggle('active');
@@ -178,7 +205,9 @@ export class Renderer {
       this.d = true;
     }
 
-    if (this.scene.camera.hasMoved == true && this.temporalAccumulation == 1) {
+    if (this.scene.camera.hasMoved == true 
+      && this.temporalAccumulation == 1 
+      && this.accumulateFrames == 0) {
       Renderer.frameCount = 0;
     }
 
@@ -674,7 +703,8 @@ export class Renderer {
     
     this.renderData = new Uint32Array([
       Renderer.canvas.width, Renderer.canvas.height, Renderer.frameCount, this.temporalAccumulation, 
-      this.diffuseType, this.hasGammaCorrection, this.showBVHBoxes, this.hideRootBVHBox, this.depthTestBVH
+      this.diffuseType, this.hasGammaCorrection, this.showBVHBoxes, 
+      this.hideRootBVHBox, this.depthTestBVH, this.toggleBVH
     ]);
     this.device.queue.writeBuffer(this.renderDataBuffer, 0, this.renderData);
 
@@ -721,10 +751,9 @@ export class Renderer {
       this.bvhNodeData[offset + 6] = this.scene.bvhNodes[i].max[2];
       this.bvhNodeData[offset + 7] = 0.0;
       this.bvhNodeData[offset + 8] = this.scene.bvhNodes[i].leftChild;
-      this.bvhNodeData[offset + 9] = this.scene.bvhNodes[i].objectIdx;
-      this.bvhNodeData[offset + 10] = this.scene.bvhNodes[i].depth;
-      //12 bytes padding
-      this.bvhNodeData[offset + 11] = 0.0;
+      this.bvhNodeData[offset + 9] = this.scene.bvhNodes[i].rightChild;
+      this.bvhNodeData[offset + 10] = this.scene.bvhNodes[i].objectIdx;
+      this.bvhNodeData[offset + 11] = this.scene.bvhNodes[i].depth;
     }
     const requiredSizeBVH = this.bvhNodeData.byteLength;
     if (this.bvhNodesBuffer.size < requiredSizeBVH) {
@@ -835,7 +864,7 @@ export class Renderer {
 
     this.renderDataBuffer = this.device.createBuffer({
       label: 'renderDataBuffer',
-      size: 36, 
+      size: 40, 
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 

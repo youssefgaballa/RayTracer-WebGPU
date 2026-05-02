@@ -3,10 +3,10 @@ struct BVHNode {
   containsRoot: f32,
   max: vec3<f32>,
   p1: f32,
-  left_child: f32, 
+  left_child: f32,
+  right_child: f32,  
   object_index: f32, 
   depth: f32,
-  p2: f32,
 }  // 12 * 4 = 48 bytes. aligned to 16 bytes = sizeof(vec3f)
 
 struct BVH {
@@ -32,18 +32,20 @@ struct CameraData {
   inverseViewProjectionMatrix: mat4x4<f32>
 
 } // 64 + 64  = 128 bytes
-struct RenderData { // 36
+
+struct RenderData { // 32
   image_width: u32,
   image_height: u32,
   frameCount: u32,
   temporalAccumulation: u32,
-
   diffuseType: u32,
   hasGammaCorrection: u32,
   showBVHBoxes: u32,
   hideRootBVHBox: u32,
-  depthTestBVH: u32
+  depthTestBVH: u32,
+  useBVH: u32,
 }
+
 @group(0) @binding(0) var screen_sampler : sampler; // used in textureRenderPipeline
 @group(0) @binding(1) var color_buffer : texture_2d<f32>; // used in boxPipeline and textureRenderPipeline
 
