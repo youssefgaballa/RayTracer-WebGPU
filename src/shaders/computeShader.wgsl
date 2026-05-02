@@ -46,28 +46,28 @@ struct RenderData { // 32
   temporalAccumulation: u32,
   diffuseType: u32,
   hasGammaCorrection: u32,
-  showBVHBoxes: u32
+  showBVHBoxes: u32,
+  hideRootBVHBox: u32
 }
 
 struct BVHNode {
   min: vec3<f32>,
-  //padding
+  containsRoot: f32,
   max: vec3<f32>,
-  left_child: i32, 
-  object_index: i32, 
-  depth: u32,
-  // need 48 - 36 = 12 bytes padding - 3 u32s
-  p0: u32,
-  p1: u32,
-}  // 12 * 4 = 48 bytes
-
+  p1: f32,
+  left_child: f32, 
+  object_index: f32, 
+  depth: f32,
+  p2: f32,
+}  // 12 * 4 = 48 bytes. aligned to 16 bytes = sizeof(vec3f)
 struct BVH {
-  numNodes: u32,
-  maxDepth: u32,
+  numNodes: f32,
+  maxDepth: f32,
   // 8 bytes padding
-  p1: u32,
-  p2: u32,
-  @align(16) nodes: array<BVHNode>,
+  p1: f32,
+  p2: f32,
+  
+  nodes: array<BVHNode>, // aligned to 16 bytes
 }
 
 @group(0) @binding(0) var color_buffer: texture_storage_2d<rgba8unorm, write>;

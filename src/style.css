@@ -68,6 +68,7 @@ body {
 }
 #canvas-container {
   display:flex;
+  flex-direction: column;
   justify-content: center;
   /* margin-top: 0.3rem; */
 }
@@ -89,4 +90,8 @@ body {
 
 #diffuseType {
   margin-bottom: 2.0rem;
+}
+
+#fov {
+  width: 100%;
 }

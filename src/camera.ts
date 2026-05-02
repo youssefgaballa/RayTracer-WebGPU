@@ -40,7 +40,13 @@ export class Camera {
   forwards!: Float32Array;
   right!: Float32Array;
   up!: Float32Array;
+
   fov: number;
+  fovSlider: HTMLButtonElement 
+  = document.getElementById("fov") as HTMLButtonElement;
+  fovSpan: HTMLButtonElement 
+  = document.getElementById("fov-val") as HTMLButtonElement;
+
   projectionMatrix!: Float32Array;
   viewMatrix!: Float32Array;
   viewProjectionMatrix!: mat4;
@@ -117,35 +123,24 @@ export class Camera {
     const rangeInv = 1.0 / (zFar - zNear);    
    
     // this.projectionMatrix = new Float32Array([
-      //   f / aspect, 0,      0,                           0, // column 0
-      //   0,          f,      0,                           0, // colun 1
-      //   0,          0,  zFar * rangeInv,           1,      // column 2
-      //   0,          0, -(zFar * zNear)*rangeInv, 0        // column 3
-      // ]);
-      this.projectionMatrix = new Float32Array([ // website vewrsion
-          f / aspect, 0,      0,                           0, // column 0
-          0,          f,      0,                           0, // colun 1
-          0,          0,  zFar * rangeInv,           -1,      // column 2
-          0,          0, (zFar * zNear)*rangeInv, 0        // column 3
-        ]);
-    // this.projectionMatrix = new Float32Array([
-    //   f / aspect, 0,      0,                           0, // column 0
-    //   0,          f,      0,                           0, // colun 1
-    //   0,          0,  -(zFar) * rangeInv,           -1,      // column 2
-    //   0,          0, -2*(zFar * zNear)*rangeInv, 0        // column 3
-    // ]);
-    const rightdotPosition = this.right[0] * this.position[0]
-    + this.right[1] * this.position[1] + this.right[2] * this.position[2];
-    const updotPosition = this.up[0] * this.position[0]
-    + this.up[1] * this.position[1] + this.up[2] * this.position[2];
-    const forwarddotPosition = this.forwards[0] * this.position[0]
-    + this.forwards[1] * this.position[1] + this.forwards[2] * this.position[2];
-    // this.viewMatrix = new Float32Array([
-    //   -this.right[0],    this.up[0],     -this.forwards[0],  0,
-    //   this.right[1],    this.up[1],    - this.forwards[1],  0,
-    //   this.right[2],    this.up[2],     -this.forwards[2],  0,
-    //   -rightdotPosition, -updotPosition, forwarddotPosition, 1
-    // ]);
+    //     f / aspect, 0,      0,                           0, // column 0
+    //     0,          f,      0,                           0, // colun 1
+    //     0,          0,  zFar * rangeInv,           1,      // column 2
+    //     0,          0, -(zFar * zNear)*rangeInv, 0        // column 3
+    //   ]);
+      // this.projectionMatrix = new Float32Array([ // website vewrsion
+      //     f / aspect, 0,      0,                           0, // column 0
+      //     0,          f,      0,                           0, // colun 1
+      //     0,          0,  zFar * rangeInv,           -1,      // column 2
+      //     0,          0, (zFar * zNear)*rangeInv, 0        // column 3
+      //   ]);
+    this.projectionMatrix = new Float32Array([
+      f / aspect, 0,      0,                           0, // column 0
+      0,          f,      0,                           0, // colun 1
+      0,          0,  -(zFar) * rangeInv,           -1,      // column 2
+      0,          0, -2*(zFar * zNear)*rangeInv, 0        // column 3
+    ]);
+  
     this.viewMatrix = new Float32Array([
       this.right[0],    this.up[0],    -this.forwards[0], 0, // 0 1 2 3 - colun 1
       this.right[1],    this.up[1],    -this.forwards[1], 0, // 4 5 6 7
@@ -154,34 +149,17 @@ export class Camera {
       -vec3.dot(this.up, this.position), 
       vec3.dot(this.forwards, this.position), 1             // 12 13 14 15
   ]);
-    const target = vec3.create();
-    const reverseForwards = Float32Array.from(this.forwards, x => x * -1)
-    vec3.add(target, this.position, this.forwards);
-    const projectionMatrix = mat4.create();
-    const viewMatrix = mat4.create();
-    this.viewProjectionMatrix = mat4.create();
-    mat4.perspective(projectionMatrix, fov_radians, aspect, zNear, zFar);
-    // mat4.ortho(projectionMatrix, 0, 
-    //   Renderer.canvas.clientWidth, Renderer.canvas.clientWidth, 
-    // 0, 1200, -1000);
 
-    mat4.lookAt(viewMatrix, this.position, target, this.up);
     if (!this.debug0) {
       console.log(Renderer.canvas.clientWidth, Renderer.canvas.clientHeight)
-      console.log("viewMatrix", viewMatrix)
       console.log("this.viewMatrix", this.viewMatrix)
-      console.log("projectionMatrix", projectionMatrix)
       console.log("this.projectionMatrix", this.projectionMatrix)
       this.debug0= true;
     }
    
-
-    // mat4.multiply(this.viewProjectionMatrix, projectionMatrix, viewMatrix );
-    mat4.multiply(this.viewProjectionMatrix, projectionMatrix, this.viewMatrix as mat4);
-    // mat4.multiply(this.viewProjectionMatrix, this.projectionMatrix, this.viewMatrix as mat4);
-
-    // mat4.multiply(this.viewProjectionMatrix, this.viewMatrix as mat4, projectionMatrix);
-    // mat4.multiply(this.viewProjectionMatrix, this.viewMatrix as mat4, projectionMatrix);
+    this.viewProjectionMatrix = mat4.create();
+    mat4.multiply(this.viewProjectionMatrix, this.projectionMatrix, this.viewMatrix as mat4);
+  
     this.inverseViewProjectionMatrix = mat4.create();
     mat4.invert(this.inverseViewProjectionMatrix, this.viewProjectionMatrix);
 
@@ -307,7 +285,6 @@ export class Camera {
     });
     document.addEventListener('pointerlockchange', (event) => {
       this.isPointerLocked = (document.pointerLockElement === Renderer.canvas);
-      // Optional: reset mouse tracking here when locked/unlocked
       
   }, false);
 
@@ -335,6 +312,16 @@ export class Camera {
       }
   }, false);
 
+  this.fovSlider.addEventListener('input', (event: Event) => {
+    const target = event.target as HTMLInputElement;
+    if (target) {
+      this.fov = parseInt(target.value);
+      this.fovSpan.textContent = target.value;
+      Renderer.frameCount = 0;
+    }
+  });
+  this.fovSlider.value = this.fov.toString();
+  this.fovSpan.textContent = this.fov.toString();
 } 
 
 

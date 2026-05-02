@@ -21,7 +21,7 @@ export class Renderer {
   private scene!: Scene;
   private renderData!: Uint32Array;
   private cameraData!: Float32Array; // 16 elements (including padding)
-  private frameCount = 1;
+  public static frameCount = 1;
   /* Set when user clicks respective button. see registerEventListeners(). */
   private temporalAccumulation = 0;
   private toggleTemporalAccumulationBtn: HTMLButtonElement 
@@ -41,6 +41,10 @@ export class Renderer {
   private showBVHBoxes = 0;
   private toggleShowBVHBoxesBtn: HTMLButtonElement 
     = document.getElementById("showBVHBoxes-btn") as HTMLButtonElement;
+
+  private hideRootBVHBox = 0;
+  private toggleHideRootBVHBoxBtn: HTMLButtonElement 
+    = document.getElementById("hideRootBVHBox-btn") as HTMLButtonElement;
 
   /* Buffers, Samplers, and Textures */
   private renderDataBuffer!: GPUBuffer;
@@ -100,6 +104,7 @@ export class Renderer {
       || this.toggleDiffuseTypeBtn == null
       || this.toggleHasGammaCorrectionnBtn == null
       || this.toggleShowBVHBoxesBtn == null
+    || this.toggleHideRootBVHBoxBtn == null
     ) {
       return;
     } 
@@ -115,11 +120,14 @@ export class Renderer {
     this.showBVHBoxes 
     = this.toggleShowBVHBoxesBtn.classList.contains("active") ? 1 : 0;
 
+    this.hideRootBVHBox 
+    = this.toggleHideRootBVHBoxBtn.classList.contains("active") ? 1 : 0;
+
     // Register event listeners
     this.toggleTemporalAccumulationBtn.addEventListener('click', () => {
       this.toggleTemporalAccumulationBtn?.classList.toggle('active');
       this.temporalAccumulation = this.temporalAccumulation == 0 ? 1: 0;
-      this.frameCount = 0;
+      Renderer.frameCount = 0;
     });
     this.toggleDiffuseTypeBtn.addEventListener('change', (event: Event) => {
       // console.log('Selected value:', event.target.value);
@@ -136,16 +144,23 @@ export class Renderer {
       this.showBVHBoxes = this.showBVHBoxes == 0 ? 1: 0;
       // this.frameCount = 0;
     });
+
+    this.toggleHideRootBVHBoxBtn.addEventListener('click', () => {
+      this.toggleHideRootBVHBoxBtn?.classList.toggle('active');
+      this.hideRootBVHBox = this.hideRootBVHBox == 0 ? 1: 0;
+      // this.frameCount = 0;
+    });
+    
   }
 
   public update() {
-    this.frameCount++;
-    this.renderData[2] = this.frameCount;
+    Renderer.frameCount++;
+    this.renderData[2] = Renderer.frameCount;
     this.renderData[3] = this.temporalAccumulation;
     this.renderData[4] = this.diffuseType;
     this.renderData[5] = this.hasGammaCorrection;
     this.renderData[6] = this.showBVHBoxes;
-
+    this.renderData[7] = this.hideRootBVHBox
 
     this.device.queue.writeBuffer(
       this.renderDataBuffer,
@@ -216,7 +231,7 @@ export class Renderer {
     if (this.scene.camera.hasMoved == true && this.temporalAccumulation == 1) {
       // commandEncoder.clearBuffer(this.accumulationBuffer, 0, 
       //   this.canvas.width * this.canvas.height * 16);
-      this.frameCount = 0;
+      Renderer.frameCount = 0;
     }
     if (debug) {
       // console.log(this.scene.camera)
@@ -747,8 +762,8 @@ export class Renderer {
     );
 
     this.renderData = new Uint32Array([
-      Renderer.canvas.width, Renderer.canvas.height, this.frameCount, this.temporalAccumulation, 
-      this.diffuseType, this.hasGammaCorrection, this.showBVHBoxes
+      Renderer.canvas.width, Renderer.canvas.height, Renderer.frameCount, this.temporalAccumulation, 
+      this.diffuseType, this.hasGammaCorrection, this.showBVHBoxes, this.hideRootBVHBox
     ]);
     this.device.queue.writeBuffer(this.renderDataBuffer, 0, this.renderData);
 
@@ -791,7 +806,7 @@ export class Renderer {
       bvhNodeDataAsF32[offset + 0] = this.scene.bvhNodes[i].min[0];
       bvhNodeDataAsF32[offset + 1] = this.scene.bvhNodes[i].min[1];
       bvhNodeDataAsF32[offset + 2] = this.scene.bvhNodes[i].min[2];
-      bvhNodeDataAsF32[offset + 3] = 0.0;
+      bvhNodeDataAsF32[offset + 3] = this.scene.bvhNodes[i].hasRoot;
       bvhNodeDataAsF32[offset + 4] = this.scene.bvhNodes[i].max[0];
       bvhNodeDataAsF32[offset + 5] = this.scene.bvhNodes[i].max[1];
       bvhNodeDataAsF32[offset + 6] = this.scene.bvhNodes[i].max[2];

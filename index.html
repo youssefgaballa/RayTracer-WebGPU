@@ -14,8 +14,13 @@
     <h4>Frames per Second: <span id="fps"></span></h4>
   </div>
   <div id="canvas-container">
-    <h1 id="fallback"></h1>
     <canvas id="GLCanvas" width="1000" height="800"></canvas>
+    <div class="control-group">
+      <label for="fov">Field of View: <span id="fov-val"></span></label> </br>
+      <input type="range" id="fov" name="fov" min="60" max="120" value="90">
+    </div>
+    <h1 id="fallback"></h1>
+
   </div>
   <div id="controls">
     
@@ -34,6 +39,9 @@
     <button id="hasGammaCorrection-btn" class="toggle-btn active">Toggle Gamma Correction</button>
     </br>
     <button id="showBVHBoxes-btn" class="toggle-btn active">Toggle BVH Boxes</button>
+    <button id="hideRootBVHBox-btn" class="toggle-btn active">Hide Root BVH Boxes</button>
+
+   
 
   </div>
 </div>
