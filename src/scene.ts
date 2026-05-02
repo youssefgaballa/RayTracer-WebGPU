@@ -10,9 +10,9 @@ export class Scene {
   bvhNodes!: BVHNode[];
   sphereIndices!: number[]
 
-  constructor(canvas: HTMLCanvasElement) {
+  constructor() {
     this.spheres = new Array(); // empty
-    this.camera = new Camera([1.0, 4.0, -20.0], canvas);
+    this.camera = new Camera([1.0, 4.0, -20.0]);
     this.sphereIndices = [];
     this.createScene1()
     this.buildBVH();

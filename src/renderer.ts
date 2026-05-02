@@ -8,7 +8,7 @@ const DiffuseTypes: { simpleDiffuse: number, lambertian: number; } =  {
 };
 export class Renderer {
   public isSupported: boolean = true;
-  private canvas: HTMLCanvasElement;
+  public static canvas: HTMLCanvasElement;
   private device!: GPUDevice;
   private context!: GPUCanvasContext;
   private textureFormat!: GPUTextureFormat;
@@ -78,7 +78,7 @@ export class Renderer {
 
 
   constructor(canvas: HTMLCanvasElement) {
-    this.canvas = canvas;
+    Renderer.canvas = canvas;
   }
 
   public async init() {
@@ -165,7 +165,49 @@ export class Renderer {
     this.cameraData[12] = this.scene.camera.up[0]
     this.cameraData[13] = this.scene.camera.up[1]
     this.cameraData[14] = this.scene.camera.up[2]
-  
+
+    this.cameraData[16] = this.scene.camera.viewProjectionMatrix[0]
+    this.cameraData[17] = this.scene.camera.viewProjectionMatrix[1]
+    this.cameraData[18] = this.scene.camera.viewProjectionMatrix[2]
+    this.cameraData[19] = this.scene.camera.viewProjectionMatrix[3]
+
+    this.cameraData[20] = this.scene.camera.viewProjectionMatrix[4]
+    this.cameraData[21] = this.scene.camera.viewProjectionMatrix[5]
+    this.cameraData[22] = this.scene.camera.viewProjectionMatrix[6]
+    this.cameraData[23] = this.scene.camera.viewProjectionMatrix[7]
+
+    this.cameraData[24] = this.scene.camera.viewProjectionMatrix[8]
+    this.cameraData[25] = this.scene.camera.viewProjectionMatrix[9]
+    this.cameraData[26] = this.scene.camera.viewProjectionMatrix[10]
+    this.cameraData[27] = this.scene.camera.viewProjectionMatrix[11]
+
+    this.cameraData[28] = this.scene.camera.viewProjectionMatrix[12]
+    this.cameraData[29] = this.scene.camera.viewProjectionMatrix[13]
+    this.cameraData[30] = this.scene.camera.viewProjectionMatrix[14]
+    this.cameraData[31] = this.scene.camera.viewProjectionMatrix[15]
+
+    for (let i = 32; i <= 64; i++) {
+      this.cameraData[i] = this.scene.camera.inverseViewProjectionMatrix[i - 32];
+    }
+    // this.cameraData[32] = this.scene.camera.inverseViewProjectionMatrix[0],
+    // this.cameraData[33] = this.scene.camera.inverseViewProjectionMatrix[1],
+    // this.cameraData[18] = this.scene.camera.inverseViewProjectionMatrix[2],
+    // this.cameraData[19] = this.scene.camera.inverseViewProjectionMatrix[3],
+
+    // this.cameraData[20] = this.scene.camera.inverseViewProjectionMatrix[4],
+    // this.cameraData[21] = this.scene.camera.inverseViewProjectionMatrix[5],
+    // this.cameraData[22] = this.scene.camera.inverseViewProjectionMatrix[6],
+    // this.cameraData[23] = this.scene.camera.inverseViewProjectionMatrix[7],
+
+    // this.cameraData[24] = this.scene.camera.inverseViewProjectionMatrix[8],
+    // this.cameraData[25] = this.scene.camera.inverseViewProjectionMatrix[9],
+    // this.cameraData[26] = this.scene.camera.inverseViewProjectionMatrix[10],
+    // this.cameraData[27] = this.scene.camera.inverseViewProjectionMatrix[11],
+
+    // this.cameraData[28] = this.scene.camera.inverseViewProjectionMatrix[12],
+    // this.cameraData[29] = this.scene.camera.inverseViewProjectionMatrix[13],
+    // this.cameraData[30] = this.scene.camera.inverseViewProjectionMatrix[14],
+    // this.cameraData[31] = this.scene.camera.inverseViewProjectionMatrix[15],
     this.device.queue.writeBuffer(
       this.cameraBuffer,
       0, // Offset in bytes: 
@@ -195,8 +237,8 @@ export class Renderer {
     computePassEncoder.setPipeline(this.computePipeline);
     computePassEncoder.setBindGroup(0, this.computeBindGroup);
     computePassEncoder.dispatchWorkgroups(
-      Math.floor((this.canvas.width + 7) / 8), // 100
-      Math.floor((this.canvas.height + 7) / 8), // 75
+      Math.floor((Renderer.canvas.width + 7) / 8), // 100
+      Math.floor((Renderer.canvas.height + 7) / 8), // 75
       // Math.floor(this.canvas.width),
       // Math.floor(this.canvas.height),
       1,
@@ -342,7 +384,7 @@ export class Renderer {
     if (this.depthTexture) this.depthTexture.destroy();
 
     this.depthTexture = this.device.createTexture({
-        size: [this.canvas.width, this.canvas.height],
+        size: [Renderer.canvas.width, Renderer.canvas.height],
         format: 'depth24plus', // Standard high-quality depth format
         usage: GPUTextureUsage.RENDER_ATTACHMENT,
     });
@@ -582,7 +624,85 @@ export class Renderer {
       this.scene.camera.up[0],
       this.scene.camera.up[1],
       this.scene.camera.up[2],
-      0.0
+      0.0,
+      // this.scene.camera.projectionMatrix[0],
+      // this.scene.camera.projectionMatrix[1],
+      // this.scene.camera.projectionMatrix[2],
+      // this.scene.camera.projectionMatrix[3],
+
+      // this.scene.camera.projectionMatrix[4],
+      // this.scene.camera.projectionMatrix[5],
+      // this.scene.camera.projectionMatrix[6],
+      // this.scene.camera.projectionMatrix[7],
+
+      // this.scene.camera.projectionMatrix[8],
+      // this.scene.camera.projectionMatrix[9],
+      // this.scene.camera.projectionMatrix[10],
+      // this.scene.camera.projectionMatrix[11],
+
+      // this.scene.camera.projectionMatrix[12],
+      // this.scene.camera.projectionMatrix[13],
+      // this.scene.camera.projectionMatrix[14],
+      // this.scene.camera.projectionMatrix[15],
+
+      // this.scene.camera.projectionMatrix[0],
+      // this.scene.camera.projectionMatrix[1],
+      // this.scene.camera.projectionMatrix[2],
+      // this.scene.camera.projectionMatrix[3],
+
+      // this.scene.camera.projectionMatrix[4],
+      // this.scene.camera.projectionMatrix[5],
+      // this.scene.camera.projectionMatrix[6],
+      // this.scene.camera.projectionMatrix[7],
+
+      // this.scene.camera.projectionMatrix[8],
+      // this.scene.camera.projectionMatrix[9],
+      // this.scene.camera.projectionMatrix[10],
+      // this.scene.camera.projectionMatrix[11],
+
+      // this.scene.camera.projectionMatrix[12],
+      // this.scene.camera.projectionMatrix[13],
+      // this.scene.camera.projectionMatrix[14],
+      // this.scene.camera.projectionMatrix[15],
+      this.scene.camera.viewProjectionMatrix[0],
+      this.scene.camera.viewProjectionMatrix[1],
+      this.scene.camera.viewProjectionMatrix[2],
+      this.scene.camera.viewProjectionMatrix[3],
+
+      this.scene.camera.viewProjectionMatrix[4],
+      this.scene.camera.viewProjectionMatrix[5],
+      this.scene.camera.viewProjectionMatrix[6],
+      this.scene.camera.viewProjectionMatrix[7],
+
+      this.scene.camera.viewProjectionMatrix[8],
+      this.scene.camera.viewProjectionMatrix[9],
+      this.scene.camera.viewProjectionMatrix[10],
+      this.scene.camera.viewProjectionMatrix[11],
+
+      this.scene.camera.viewProjectionMatrix[12],
+      this.scene.camera.viewProjectionMatrix[13],
+      this.scene.camera.viewProjectionMatrix[14],
+      this.scene.camera.viewProjectionMatrix[15],
+
+      this.scene.camera.inverseViewProjectionMatrix[16],
+      this.scene.camera.inverseViewProjectionMatrix[17],
+      this.scene.camera.inverseViewProjectionMatrix[18],
+      this.scene.camera.inverseViewProjectionMatrix[19],
+
+      this.scene.camera.inverseViewProjectionMatrix[20],
+      this.scene.camera.inverseViewProjectionMatrix[21],
+      this.scene.camera.inverseViewProjectionMatrix[22],
+      this.scene.camera.inverseViewProjectionMatrix[23],
+
+      this.scene.camera.inverseViewProjectionMatrix[24],
+      this.scene.camera.inverseViewProjectionMatrix[25],
+      this.scene.camera.inverseViewProjectionMatrix[26],
+      this.scene.camera.inverseViewProjectionMatrix[27],
+
+      this.scene.camera.inverseViewProjectionMatrix[28],
+      this.scene.camera.inverseViewProjectionMatrix[29],
+      this.scene.camera.inverseViewProjectionMatrix[30],
+      this.scene.camera.inverseViewProjectionMatrix[31],
     ]);
     this.device.queue.writeBuffer(this.cameraBuffer, 0,
       this.cameraData,
@@ -627,7 +747,7 @@ export class Renderer {
     );
 
     this.renderData = new Uint32Array([
-      this.canvas.width, this.canvas.height, this.frameCount, this.temporalAccumulation, 
+      Renderer.canvas.width, Renderer.canvas.height, this.frameCount, this.temporalAccumulation, 
       this.diffuseType, this.hasGammaCorrection, this.showBVHBoxes
     ]);
     this.device.queue.writeBuffer(this.renderDataBuffer, 0, this.renderData);
@@ -712,8 +832,8 @@ export class Renderer {
     this.colorBuffer = this.device.createTexture({
       label: 'colorBuffer',
       size: {
-        width: this.canvas.width, // 800 px
-        height: this.canvas.height, // 600 px
+        width: Renderer.canvas.width, // 800 px
+        height: Renderer.canvas.height, // 600 px
       },
       format: "rgba8unorm",
       usage:
@@ -752,7 +872,7 @@ export class Renderer {
     // cooresponds to @binding(1) in compute Shader
     this.cameraBuffer = this.device.createBuffer({
       label: 'cameraBuffer',
-      size: 16 * 4, // 16 * 4 ==  64
+      size: 48 * 4, // 32 * 4 ==  128
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
@@ -786,7 +906,7 @@ export class Renderer {
 
     this.accumulationBuffer = this.device.createBuffer({
       label: 'accumulationBuffer',
-      size: this.canvas.width * this.canvas.height * 16,
+      size: Renderer.canvas.width * Renderer.canvas.height * 16,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
     });
     
@@ -847,7 +967,7 @@ export class Renderer {
     Initializes the scene.
   */
   private createScene() {
-    this.scene = new Scene(this.canvas);
+    this.scene = new Scene();
 
   }
 
@@ -871,7 +991,7 @@ export class Renderer {
   }
 
   private configureGPUCanvasContext() {
-    this.context = this.canvas.getContext("webgpu") as GPUCanvasContext;
+    this.context = Renderer.canvas.getContext("webgpu") as GPUCanvasContext;
     this.textureFormat = navigator.gpu.getPreferredCanvasFormat();
     // this.textureFormat = "bgra8unorm";
 

@@ -1,6 +1,7 @@
-import { vec3 } from "gl-matrix";
+import { mat4, vec3 } from "gl-matrix";
 import { debug } from "./main";
 import { Interval } from "./BVH/interval";
+import { Renderer } from "./renderer";
 type keysPressedType = {
   w:     boolean,
   a:     boolean,
@@ -9,13 +10,6 @@ type keysPressedType = {
   up:    boolean,
   down:  boolean
 }
-
-// type typeMouseDeltaType = {
-//   x: number,
-//   y: number,
-//   offsetX: number,
-//   offsetY: number
-// }
 
 export class Camera {
   position: Float32Array;
@@ -47,6 +41,11 @@ export class Camera {
   right!: Float32Array;
   up!: Float32Array;
   fov: number;
+  projectionMatrix!: Float32Array;
+  viewMatrix!: Float32Array;
+  viewProjectionMatrix!: mat4;
+  inverseViewProjectionMatrix!: mat4;
+
   speed: number;
   keysPressed: keysPressedType = {
     w: false,
@@ -66,12 +65,7 @@ export class Camera {
     the camera is in a different position
   */
   public hasMoved: boolean = false;
-  // mouseDelta: typeMouseDeltaType = {
-  //   x: 0,
-  //   y: 0,
-  //   offsetX: 0,
-  //   offsetY: 0
-  // }
+  private debug0 = false;
   /*
     When I click on the canvas, sometimes the first invocation of the
     movemove event causes the cammera to snap to a random position.
@@ -85,17 +79,15 @@ export class Camera {
   */
   isPointerLocked: boolean = false;
 
-  constructor(position: number[], canvas: HTMLCanvasElement) {
+  constructor(position: number[]) {
     this.position = new Float32Array(position);
     // looking at +Z
-    // this.pitch = clamp(Math.PI / 2, Number.EPSILON, Math.PI - Number.EPSILON); 
-    // this.yaw = clamp(Math.PI / 2, Number.EPSILON, Math.PI - Number.EPSILON);
     this.pitch = this.pitchInterval.clamp(Math.PI / 2);
     this.yaw = Math.PI / 2;
     this.fov = 75;
     this.speed = 0.04;
     this.recalculate_vectors();
-    this.registerInputListeners(canvas);
+    this.registerInputListeners();
   }
 
   recalculate_vectors() {
@@ -118,27 +110,87 @@ export class Camera {
     vec3.cross(this.up, this.forwards, this.right);
     vec3.normalize(this.up, this.up);
     // vec3.scale(this.up, this.up, fov_factor);
+    const aspect = Renderer.canvas.clientWidth / Renderer.canvas.clientHeight;
+    const zNear = 0.1;
+    const zFar = 3000.0;
+    const f = 1.0 / Math.tan(fov_radians / 2);
+    const rangeInv = 1.0 / (zFar - zNear);    
+   
+    // this.projectionMatrix = new Float32Array([
+      //   f / aspect, 0,      0,                           0, // column 0
+      //   0,          f,      0,                           0, // colun 1
+      //   0,          0,  zFar * rangeInv,           1,      // column 2
+      //   0,          0, -(zFar * zNear)*rangeInv, 0        // column 3
+      // ]);
+      this.projectionMatrix = new Float32Array([ // website vewrsion
+          f / aspect, 0,      0,                           0, // column 0
+          0,          f,      0,                           0, // colun 1
+          0,          0,  zFar * rangeInv,           -1,      // column 2
+          0,          0, (zFar * zNear)*rangeInv, 0        // column 3
+        ]);
+    // this.projectionMatrix = new Float32Array([
+    //   f / aspect, 0,      0,                           0, // column 0
+    //   0,          f,      0,                           0, // colun 1
+    //   0,          0,  -(zFar) * rangeInv,           -1,      // column 2
+    //   0,          0, -2*(zFar * zNear)*rangeInv, 0        // column 3
+    // ]);
+    const rightdotPosition = this.right[0] * this.position[0]
+    + this.right[1] * this.position[1] + this.right[2] * this.position[2];
+    const updotPosition = this.up[0] * this.position[0]
+    + this.up[1] * this.position[1] + this.up[2] * this.position[2];
+    const forwarddotPosition = this.forwards[0] * this.position[0]
+    + this.forwards[1] * this.position[1] + this.forwards[2] * this.position[2];
+    // this.viewMatrix = new Float32Array([
+    //   -this.right[0],    this.up[0],     -this.forwards[0],  0,
+    //   this.right[1],    this.up[1],    - this.forwards[1],  0,
+    //   this.right[2],    this.up[2],     -this.forwards[2],  0,
+    //   -rightdotPosition, -updotPosition, forwarddotPosition, 1
+    // ]);
+    this.viewMatrix = new Float32Array([
+      this.right[0],    this.up[0],    -this.forwards[0], 0, // 0 1 2 3 - colun 1
+      this.right[1],    this.up[1],    -this.forwards[1], 0, // 4 5 6 7
+      this.right[2],    this.up[2],    -this.forwards[2], 0, // 8 9 10 11
+      -vec3.dot(this.right, this.position), 
+      -vec3.dot(this.up, this.position), 
+      vec3.dot(this.forwards, this.position), 1             // 12 13 14 15
+  ]);
+    const target = vec3.create();
+    const reverseForwards = Float32Array.from(this.forwards, x => x * -1)
+    vec3.add(target, this.position, this.forwards);
+    const projectionMatrix = mat4.create();
+    const viewMatrix = mat4.create();
+    this.viewProjectionMatrix = mat4.create();
+    mat4.perspective(projectionMatrix, fov_radians, aspect, zNear, zFar);
+    // mat4.ortho(projectionMatrix, 0, 
+    //   Renderer.canvas.clientWidth, Renderer.canvas.clientWidth, 
+    // 0, 1200, -1000);
+
+    mat4.lookAt(viewMatrix, this.position, target, this.up);
+    if (!this.debug0) {
+      console.log(Renderer.canvas.clientWidth, Renderer.canvas.clientHeight)
+      console.log("viewMatrix", viewMatrix)
+      console.log("this.viewMatrix", this.viewMatrix)
+      console.log("projectionMatrix", projectionMatrix)
+      console.log("this.projectionMatrix", this.projectionMatrix)
+      this.debug0= true;
+    }
+   
+
+    // mat4.multiply(this.viewProjectionMatrix, projectionMatrix, viewMatrix );
+    mat4.multiply(this.viewProjectionMatrix, projectionMatrix, this.viewMatrix as mat4);
+    // mat4.multiply(this.viewProjectionMatrix, this.projectionMatrix, this.viewMatrix as mat4);
+
+    // mat4.multiply(this.viewProjectionMatrix, this.viewMatrix as mat4, projectionMatrix);
+    // mat4.multiply(this.viewProjectionMatrix, this.viewMatrix as mat4, projectionMatrix);
+    this.inverseViewProjectionMatrix = mat4.create();
+    mat4.invert(this.inverseViewProjectionMatrix, this.viewProjectionMatrix);
+
+
+
   }
 
   update() {
-    // let dx = 0;
-    // let dz = 0;
-    // const c = Math.cos(this.yaw);
-    // const s = Math.sin(this.yaw);
-    // if (this.keysPressed.w == true) {
-    //   dx += this.speed * c;
-    //   dz += this.speed * s;
-    // }
-    // if (this.keysPressed.d == true) {
-    //   dx += this.speed * s;
-    //   dz += this.speed * c;
-    // }
-    // if (this.keysPressed.s == true) {
-    // }
-    // if (this.keysPressed.a == true) {
-    // }
-    // this.position[0] += dx;
-    // this.position[2] += dz;
+    
     let moveDir = vec3.create(); 
 
     // Forward / Backward
@@ -170,12 +222,7 @@ export class Camera {
     vec3.normalize(moveDir, moveDir);
     vec3.scale(moveDir, moveDir, this.speed);
     vec3.add(this.position, this.position, moveDir);
-    // if (vec3.length(moveDir) > 0) {
-      
-    //   // 4. Scale by speed and apply to position
-    //   vec3.scale(moveDir, moveDir, this.speed);
-    //   vec3.add(this.position, this.position, moveDir);
-    // }
+
     if (this.keysPressed.w == false &&
       this.keysPressed.s == false &&
       this.keysPressed.d == false &&
@@ -187,9 +234,10 @@ export class Camera {
       this.hasMoved = false;
 
     }
+    this.recalculate_vectors() 
   }
 
-  private registerInputListeners(canvas: HTMLCanvasElement) {
+  private registerInputListeners() {
     // console.log(canvas)
 
     window.addEventListener('keydown', (event) => {
@@ -240,16 +288,16 @@ export class Camera {
       // }   
     });
 
-    canvas.addEventListener('mousedown', async (event) => {
+    Renderer.canvas.addEventListener('mousedown', async (event) => {
       // 0 = Left click
       if (event.button === 0) {
         this.mouseActive = true;
-        await canvas.requestPointerLock();
+        await Renderer.canvas.requestPointerLock();
         // this.isPointerLocked = true;
 
       }
     });
-    canvas.addEventListener('mouseup', (event) => {
+    Renderer.canvas.addEventListener('mouseup', (event) => {
       // 0 = Left click
       if (event.button === 0) {
         this.mouseActive = false;
@@ -258,7 +306,7 @@ export class Camera {
       }
     });
     document.addEventListener('pointerlockchange', (event) => {
-      this.isPointerLocked = (document.pointerLockElement === canvas);
+      this.isPointerLocked = (document.pointerLockElement === Renderer.canvas);
       // Optional: reset mouse tracking here when locked/unlocked
       
   }, false);
@@ -268,7 +316,7 @@ export class Camera {
       //   this.mouseDelta.offsetX = e.movementX;
       //   this.mouseDelta.offsetY = e.movementY;
       // }
-      if (document.pointerLockElement === canvas && this.isPointerLocked == true) {
+      if (document.pointerLockElement === Renderer.canvas && this.isPointerLocked == true) {
         if (Math.abs(e.movementX) > 500 || Math.abs(e.movementY) > 500) {
           return;
       }

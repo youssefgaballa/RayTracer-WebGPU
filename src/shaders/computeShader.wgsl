@@ -28,8 +28,10 @@ struct CameraData {
   padding2: f32,
   cameraUp: vec3<f32>,
   padding3: f32,
-}
+  viewProjectionMatrix: mat4x4<f32>,
+  inverseViewProjectionMatrix: mat4x4<f32>
 
+} // 64 + 64 + 64  = 128 bytes
 struct HitRecord {
   t: f32,
   color: vec3<f32>,
@@ -98,29 +100,47 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
   
   var ndc: vec2<f32> = (uv * 2.0) - 1.0;
   ndc.y = -ndc.y;
-  ndc.x *= aspect_ratio;
+  // ndc.x *= aspect_ratio;
   // Range(ndc.x) = [-1.33, 1.33]
   // Range(ndc.y) = [1.0, -1.0] // flipped because texture coords are automatically mirrored
-
+  // let fov_factor: f32 = tan(radians(75.0) / 2.0);
+  // let invVP = inverse(cameraData.viewProjectionMatrix);
+  /*
+    box shader converts from world coordinates to ndc in vertex shader
+    Need to convert from ndc to world coordinates so that it is synchronized with the
+    box shader
+  */
+  let screen_pos = vec4<f32>(ndc.x, ndc.y, 0.0, 1.0); // Near plane
+  let world_target = cameraData.inverseViewProjectionMatrix * screen_pos;
+  let world_pos = world_target.xyz / world_target.w;
   var myRay: Ray;
   myRay.origin = cameraData.cameraPos;
-  myRay.direction = normalize(cameraData.cameraForwards
-  + ndc.x * cameraData.cameraRight 
-  + ndc.y * cameraData.cameraUp);
+  myRay.direction = normalize(world_pos - myRay.origin);
+  // myRay.direction = normalize(cameraData.cameraForwards
+  // + ndc.x * cameraData.cameraRight 
+  // + ndc.y * cameraData.cameraUp);
 
   var outputColor: vec3<f32>;
   if (renderData.temporalAccumulation == 1u) {
     let jitter = vec2<f32>(random_float(&seed), random_float(&seed)) - 0.5;
-    uv = (vec2f(GlobalInvocationID.xy) + 0.5 * jitter) / vec2f(canvas_size);
-    ndc = (uv * 2.0) - 1.0;
-    ndc.y = -ndc.y; // Flip Y for screen space
-    ndc.x *= aspect_ratio;
+    uv = (vec2f(GlobalInvocationID.xy) + 0.5 + jitter) / vec2f(canvas_size);
+    // ndc = (uv * 2.0) - 1.0;
+    // ndc.y = -ndc.y; // Flip Y for screen space
+    // ndc.x *= aspect_ratio;
 
-    myRay.direction = normalize(
-      cameraData.cameraForwards + 
-      ndc.x * cameraData.cameraRight + 
-      ndc.y * cameraData.cameraUp
-    );
+    // myRay.direction = normalize(
+    //   cameraData.cameraForwards + 
+    //   ndc.x * cameraData.cameraRight + 
+    //   ndc.y * cameraData.cameraUp
+    // );
+    var ndc: vec2<f32> = (uv * 2.0) - 1.0;
+    ndc.y = -ndc.y;
+    let screen_pos = vec4<f32>(ndc.x, ndc.y, 0.0, 1.0); // Near plane
+    let world_target = cameraData.inverseViewProjectionMatrix * screen_pos;
+    let world_pos = world_target.xyz / world_target.w;
+    var myRay: Ray;
+    myRay.origin = cameraData.cameraPos;
+    myRay.direction = normalize(world_pos - myRay.origin);
     let new_sample_color: vec3<f32> = rayColor(myRay, &seed);
 
     let pixel_index = GlobalInvocationID.y * renderData.image_width + GlobalInvocationID.x;

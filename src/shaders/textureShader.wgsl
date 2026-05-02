@@ -29,7 +29,10 @@ struct CameraData {
   padding2: f32,
   cameraUp: vec3<f32>,
   padding3: f32,
-}
+  viewProjectionMatrix: mat4x4<f32>,
+  inverseViewProjectionMatrix: mat4x4<f32>
+
+} // 64 + 64  = 128 bytes
 struct RenderData { // 32 bytes
   image_width: u32,
   image_height: u32,
@@ -62,7 +65,6 @@ fn vs_box(in: VertexInput) -> BoxOutput {
     // let node: BVHNode = bvh.nodes[0];
     // Transform unit cube corner to world space
     let world_pos = node.min + in.unit_pos * (node.max - node.min);
-
     // Camera Transformation
     let view_dir = world_pos - cameraData.cameraPos;
     let view_z = dot(view_dir, cameraData.cameraForwards);
@@ -71,24 +73,32 @@ fn vs_box(in: VertexInput) -> BoxOutput {
 
     let aspect = f32(renderData.image_width) / f32(renderData.image_height);
     let near = 0.1;
-
+    let zFar = 3000.0;
     var out: BoxOutput;
     
     // Clipping & Projection
     // We manually clip vertices behind the near plane to prevent infinite lines
-    if (view_z < near) {
-      // Force the vertex to a coordinate that the GPU will clip (outside -1 to 1)
-      out.Position = vec4<f32>(0.0, 0.0, 2.0, 1.0); 
-    } else {
-      // Standard pinhole projection
-      out.Position = vec4<f32>(
-          view_x / (view_z * aspect), 
-          view_y / view_z, 
-          0.0, 
-          1.0
-      );
-    }
+    // if (view_z < near) {
+    //   // Force the vertex to a coordinate that the GPU will clip (outside -1 to 1)
+    //   // out.Position = vec4<f32>(0.0, 0.0, 2.0, 1.0); 
+    //   out.Position = vec4<f32>(cameraData.cameraPos, 1.0); 
 
+    // } else {
+    //   // Standard pinhole projection
+    //   out.Position = vec4<f32>(
+    //       view_x / (view_z * aspect), 
+    //       view_y / view_z, 
+    //       0.0, 
+    //       1.0
+    //   );
+    // }
+    /*
+      Need the position of the vertex to be in clipspace (same as in compute shader)
+      Get clip space position by view Matrix * projection matrix * world position
+    */
+    out.Position = cameraData.viewProjectionMatrix * vec4<f32>(world_pos, 1.0);
+    // before going to fragment shader, it is converted to NDC by dividing out.Position.xyz by w.
+    
     // Leaf nodes green, internal nodes red
     // Interpolate based on depth
     let leafColor = vec3<f32>(0.0, 1.0, 0.0);    // Neon Green
@@ -102,18 +112,6 @@ fn vs_box(in: VertexInput) -> BoxOutput {
       internalColor,
       depthNormalized
     );
-    // if (node.object_index >= 0) { 
-    //   // out.Color = vec3<f32>(f32(bvh.numNodes/bvh.numNodes), f32(bvh.numNodes/bvh.numNodes), f32(bvh.numNodes/bvh.numNodes));
-    //   // out.Color = vec3<f32>(a,a,a);
-    //   out.Color = mix(
-    //     leafColor, 
-    //     vec3<f32>(0.0, 0.2, 0.0),
-    //     depthNormalized
-    //   );
-
-    // } else if (node.object_index < -0.9) {
-    //   out.Color = vec3<f32>(1.0, 0.0, 1.0); // Force internal nodes to bright Magenta
-    // }
     return out;
     //  let node = bvh.nodes[in.i_idx];
     
