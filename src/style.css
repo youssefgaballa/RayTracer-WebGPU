@@ -82,6 +82,11 @@ body {
   padding: 0.5rem;
   margin-top:0.5rem;
 }
+.control-group h3 {
+  margin: 0;
+  margin-bottom: 0.2rem;
+  text-align: center;
+}
 #diagnostics {
   min-width: 25ch;
   text-align: right;
@@ -92,6 +97,7 @@ body {
   margin-bottom: 2.0rem;
 }
 
-#fov {
+.range {
   width: 100%;
+
 }

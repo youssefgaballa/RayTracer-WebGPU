@@ -3,7 +3,7 @@ struct Sphere { // 16 bytes
   radius: f32,
   color: vec3<f32>,
   padding: f32
-}
+} // byte aligned to 16 bytes
 
 struct ObjectData { // 16 + sizeof(spheres)bytes
   sphereCount: u32,

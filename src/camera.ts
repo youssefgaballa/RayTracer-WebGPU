@@ -52,7 +52,12 @@ export class Camera {
   viewProjectionMatrix!: mat4;
   inverseViewProjectionMatrix!: mat4;
 
-  speed: number;
+  speed: number = 0.006;
+  /*
+  Needed so that movement speed is independent of frame rate
+  */
+  deltaT: number = 1;
+  lastFrame: number;
   keysPressed: keysPressedType = {
     w: false,
     a: false,
@@ -91,7 +96,7 @@ export class Camera {
     this.pitch = this.pitchInterval.clamp(Math.PI / 2);
     this.yaw = Math.PI / 2;
     this.fov = 75;
-    this.speed = 0.04;
+    this.lastFrame = performance.now();// milliseconds
     this.recalculate_vectors();
     this.registerInputListeners();
   }
@@ -168,7 +173,8 @@ export class Camera {
   }
 
   update() {
-    
+    this.deltaT = performance.now() - this.lastFrame;
+    this.lastFrame = performance.now();
     let moveDir = vec3.create(); 
 
     // Forward / Backward
@@ -198,7 +204,7 @@ export class Camera {
     }
     // Normalize moveDir so that diagonal movement and axial movement is at the same speed.
     vec3.normalize(moveDir, moveDir);
-    vec3.scale(moveDir, moveDir, this.speed);
+    vec3.scale(moveDir, moveDir, this.speed * this.deltaT);
     vec3.add(this.position, this.position, moveDir);
 
     if (this.keysPressed.w == false &&

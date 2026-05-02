@@ -19,8 +19,10 @@ export class Renderer {
 
   /* Actual Data that is fed into Buffers and Textures */
   private scene!: Scene;
+  private sceneData!: ArrayBuffer
   private renderData!: Uint32Array;
   private cameraData!: Float32Array; // 16 elements (including padding)
+  private bvhNodeData!: Float32Array;
   public static frameCount = 1;
   /* Set when user clicks respective button. see registerEventListeners(). */
   private temporalAccumulation = 0;
@@ -97,7 +99,7 @@ export class Renderer {
     this.createScene();
     this.registerEventListeners();
     this.configureBuffers();
-    this.writeBuffers();
+    this.writeBuffers(true);
     this.createDepthTexture();
     this.configureBindGroups();
     this.configurePipeline();
@@ -165,70 +167,21 @@ export class Renderer {
     });
     
   }
-
+  d = false;
   public update() {
     Renderer.frameCount++;
-    this.renderData[2] = Renderer.frameCount;
-    this.renderData[3] = this.temporalAccumulation;
-    this.renderData[4] = this.diffuseType;
-    this.renderData[5] = this.hasGammaCorrection;
-    this.renderData[6] = this.showBVHBoxes;
-    this.renderData[7] = this.hideRootBVHBox
-    this.renderData[8] = this.depthTestBVH
-
-    this.device.queue.writeBuffer(
-      this.renderDataBuffer,
-      0, // Offset in bytes: cavnas.width + cavnas.height = 4 + 4 = 8
-      this.renderData
-    );
     this.scene.camera.update();
-    this.cameraData[0] = this.scene.camera.position[0]
-    this.cameraData[1] = this.scene.camera.position[1]
-    this.cameraData[2] = this.scene.camera.position[2]
-    this.cameraData[4] = this.scene.camera.forwards[0]
-    this.cameraData[5] = this.scene.camera.forwards[1]
-    this.cameraData[6] = this.scene.camera.forwards[2]
-    this.cameraData[8] = this.scene.camera.right[0]
-    this.cameraData[9] = this.scene.camera.right[1]
-    this.cameraData[10] = this.scene.camera.right[2]
-    this.cameraData[12] = this.scene.camera.up[0]
-    this.cameraData[13] = this.scene.camera.up[1]
-    this.cameraData[14] = this.scene.camera.up[2]
-
-    this.cameraData[16] = this.scene.camera.viewProjectionMatrix[0]
-    this.cameraData[17] = this.scene.camera.viewProjectionMatrix[1]
-    this.cameraData[18] = this.scene.camera.viewProjectionMatrix[2]
-    this.cameraData[19] = this.scene.camera.viewProjectionMatrix[3]
-
-    this.cameraData[20] = this.scene.camera.viewProjectionMatrix[4]
-    this.cameraData[21] = this.scene.camera.viewProjectionMatrix[5]
-    this.cameraData[22] = this.scene.camera.viewProjectionMatrix[6]
-    this.cameraData[23] = this.scene.camera.viewProjectionMatrix[7]
-
-    this.cameraData[24] = this.scene.camera.viewProjectionMatrix[8]
-    this.cameraData[25] = this.scene.camera.viewProjectionMatrix[9]
-    this.cameraData[26] = this.scene.camera.viewProjectionMatrix[10]
-    this.cameraData[27] = this.scene.camera.viewProjectionMatrix[11]
-
-    this.cameraData[28] = this.scene.camera.viewProjectionMatrix[12]
-    this.cameraData[29] = this.scene.camera.viewProjectionMatrix[13]
-    this.cameraData[30] = this.scene.camera.viewProjectionMatrix[14]
-    this.cameraData[31] = this.scene.camera.viewProjectionMatrix[15]
-
-    for (let i = 32; i <= 64; i++) {
-      this.cameraData[i] = this.scene.camera.inverseViewProjectionMatrix[i - 32];
+    this.writeBuffers(false);
+  
+    if (!this.d) {
+      console.log("camera", this.cameraData)
+      this.d = true;
     }
-    this.device.queue.writeBuffer(
-      this.cameraBuffer,
-      0, // Offset in bytes: 
-      this.cameraData
-    );
+
     if (this.scene.camera.hasMoved == true && this.temporalAccumulation == 1) {
       Renderer.frameCount = 0;
     }
-    if (debug) {
-      // console.log(this.scene.camera)
-    }
+
   }
 
   public render() {
@@ -239,7 +192,7 @@ export class Renderer {
     const commandEncoder: GPUCommandEncoder = this.device.createCommandEncoder({
       label: "Basic Comamnd Encoder",
     });
-   
+  
     // Compute Pass:
     const computePassEncoder: GPUComputePassEncoder = commandEncoder.beginComputePass();
     computePassEncoder.setPipeline(this.computePipeline);
@@ -311,7 +264,7 @@ export class Renderer {
     requestAnimationFrame(() => this.render());
   }
 
- 
+
   private configurePipeline() {
     /*
       Create Compute Pipeline
@@ -626,7 +579,8 @@ export class Renderer {
     Writes to the spheres buffer with the values from the
     scene's sphere member (array of sphere types).
   */
-  private writeBuffers() {
+  private writeBuffers(isInit: boolean) {
+    let configBindGroups: boolean = false;
     // Write to Camera Buffer:
     /*
       Format of CameraData struct:
@@ -640,106 +594,27 @@ export class Renderer {
       padding3: f32,            - 4 bytes
       size of CameraData        - 64 bytes
     */
-    this.cameraData = new Float32Array([
-      this.scene.camera.position[0],
-      this.scene.camera.position[1],
-      this.scene.camera.position[2],
-      0.0,
-      this.scene.camera.forwards[0],
-      this.scene.camera.forwards[1],
-      this.scene.camera.forwards[2],
-      0.0,
-      this.scene.camera.right[0],
-      this.scene.camera.right[1],
-      this.scene.camera.right[2],
-      0.0,
-      this.scene.camera.up[0],
-      this.scene.camera.up[1],
-      this.scene.camera.up[2],
-      0.0,
-      // this.scene.camera.projectionMatrix[0],
-      // this.scene.camera.projectionMatrix[1],
-      // this.scene.camera.projectionMatrix[2],
-      // this.scene.camera.projectionMatrix[3],
+   if (isInit == true) {
+    this.cameraData = new Float32Array(48);
 
-      // this.scene.camera.projectionMatrix[4],
-      // this.scene.camera.projectionMatrix[5],
-      // this.scene.camera.projectionMatrix[6],
-      // this.scene.camera.projectionMatrix[7],
+   }
 
-      // this.scene.camera.projectionMatrix[8],
-      // this.scene.camera.projectionMatrix[9],
-      // this.scene.camera.projectionMatrix[10],
-      // this.scene.camera.projectionMatrix[11],
+    this.cameraData.set(this.scene.camera.position, 0);   this.cameraData[3] = 0.0;
+    this.cameraData.set(this.scene.camera.forwards, 4);   this.cameraData[7] = 0.0;
+    this.cameraData.set(this.scene.camera.right, 8);      this.cameraData[11] = 0.0;
+    this.cameraData.set(this.scene.camera.up, 12);        this.cameraData[15] = 0.0;
 
-      // this.scene.camera.projectionMatrix[12],
-      // this.scene.camera.projectionMatrix[13],
-      // this.scene.camera.projectionMatrix[14],
-      // this.scene.camera.projectionMatrix[15],
+    // Matrix 1: Inverse View-Projection (Indices 16-31)
+    this.cameraData.set(this.scene.camera.viewProjectionMatrix, 16);
 
-      // this.scene.camera.projectionMatrix[0],
-      // this.scene.camera.projectionMatrix[1],
-      // this.scene.camera.projectionMatrix[2],
-      // this.scene.camera.projectionMatrix[3],
-
-      // this.scene.camera.projectionMatrix[4],
-      // this.scene.camera.projectionMatrix[5],
-      // this.scene.camera.projectionMatrix[6],
-      // this.scene.camera.projectionMatrix[7],
-
-      // this.scene.camera.projectionMatrix[8],
-      // this.scene.camera.projectionMatrix[9],
-      // this.scene.camera.projectionMatrix[10],
-      // this.scene.camera.projectionMatrix[11],
-
-      // this.scene.camera.projectionMatrix[12],
-      // this.scene.camera.projectionMatrix[13],
-      // this.scene.camera.projectionMatrix[14],
-      // this.scene.camera.projectionMatrix[15],
-      this.scene.camera.viewProjectionMatrix[0],
-      this.scene.camera.viewProjectionMatrix[1],
-      this.scene.camera.viewProjectionMatrix[2],
-      this.scene.camera.viewProjectionMatrix[3],
-
-      this.scene.camera.viewProjectionMatrix[4],
-      this.scene.camera.viewProjectionMatrix[5],
-      this.scene.camera.viewProjectionMatrix[6],
-      this.scene.camera.viewProjectionMatrix[7],
-
-      this.scene.camera.viewProjectionMatrix[8],
-      this.scene.camera.viewProjectionMatrix[9],
-      this.scene.camera.viewProjectionMatrix[10],
-      this.scene.camera.viewProjectionMatrix[11],
-
-      this.scene.camera.viewProjectionMatrix[12],
-      this.scene.camera.viewProjectionMatrix[13],
-      this.scene.camera.viewProjectionMatrix[14],
-      this.scene.camera.viewProjectionMatrix[15],
-
-      this.scene.camera.inverseViewProjectionMatrix[16],
-      this.scene.camera.inverseViewProjectionMatrix[17],
-      this.scene.camera.inverseViewProjectionMatrix[18],
-      this.scene.camera.inverseViewProjectionMatrix[19],
-
-      this.scene.camera.inverseViewProjectionMatrix[20],
-      this.scene.camera.inverseViewProjectionMatrix[21],
-      this.scene.camera.inverseViewProjectionMatrix[22],
-      this.scene.camera.inverseViewProjectionMatrix[23],
-
-      this.scene.camera.inverseViewProjectionMatrix[24],
-      this.scene.camera.inverseViewProjectionMatrix[25],
-      this.scene.camera.inverseViewProjectionMatrix[26],
-      this.scene.camera.inverseViewProjectionMatrix[27],
-
-      this.scene.camera.inverseViewProjectionMatrix[28],
-      this.scene.camera.inverseViewProjectionMatrix[29],
-      this.scene.camera.inverseViewProjectionMatrix[30],
-      this.scene.camera.inverseViewProjectionMatrix[31],
-    ]);
+    // Matrix 2: Inverse Projection (Indices 32-47) 
+    // Assuming you have a second matrix, otherwise just use a 32-float array
+    if (this.scene.camera.inverseViewProjectionMatrix) {
+      this.cameraData.set(this.scene.camera.inverseViewProjectionMatrix, 32);
+    }
     this.device.queue.writeBuffer(this.cameraBuffer, 0,
       this.cameraData,
-      0, //dataOffset
-      this.cameraBuffer.size / 4 // size is number of elements since this is a typed array
+
     );
 
     // Write to Spheres Buffer:
@@ -753,11 +628,27 @@ export class Renderer {
     // const radiusOffset = 3 * 4; // 12
     // const colorOffset = 4 * 4; // 16
     // const stride = 4 * 8; // 32
-    const sphereData: ArrayBuffer = new ArrayBuffer(
-      4*4 + sphereStructSizeBytes * this.scene.spheres.length
-    );
-    const sphereDataAsF32: Float32Array = new Float32Array(sphereData);
-    const sphereDataAsU32: Uint32Array = new Uint32Array(sphereData);
+    const expectedSphereSize = 4*4 + sphereStructSizeBytes * this.scene.spheres.length;
+
+    if (isInit == true) {
+      this.sceneData = new ArrayBuffer(
+        4*4 + sphereStructSizeBytes * this.scene.spheres.length
+      );
+    }
+    
+    if (this.sceneData.byteLength !== expectedSphereSize) {
+      this.sceneData = new ArrayBuffer(expectedSphereSize);
+      // You will also need to recreate this.spheresBuffer here!
+      this.spheresBuffer.destroy();
+      this.spheresBuffer = this.device.createBuffer({
+          size: expectedSphereSize,
+          usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+      });
+      configBindGroups = true;
+      this.configureBindGroups();
+    }
+    const sphereDataAsF32: Float32Array = new Float32Array(this.sceneData);
+    const sphereDataAsU32: Uint32Array = new Uint32Array(this.sceneData);
     const numSpheres: Uint32Array = new Uint32Array(1);
     numSpheres[0] = this.scene.spheres.length;
     sphereDataAsU32[0] = numSpheres[0];
@@ -772,12 +663,15 @@ export class Renderer {
       sphereDataAsF32[offset + 6] = this.scene.spheres[i].color[2];
       sphereDataAsF32[offset + 7] = 0.0;
     }
+
+
     this.device.queue.writeBuffer(this.spheresBuffer, 0,
-      sphereDataAsF32,
+      this.sceneData,
       0,
-      sphereDataAsF32.length
+      this.sceneData.byteLength
     );
 
+    
     this.renderData = new Uint32Array([
       Renderer.canvas.width, Renderer.canvas.height, Renderer.frameCount, this.temporalAccumulation, 
       this.diffuseType, this.hasGammaCorrection, this.showBVHBoxes, this.hideRootBVHBox, this.depthTestBVH
@@ -806,49 +700,49 @@ export class Renderer {
     const bvhNodesArrayOffsetBytes = 16; 
     const bvhNodesArrayOffset = bvhNodesArrayOffsetBytes / 4; // 4
     const bvhNodesBufferNumElements = bvhNodesArrayOffset + bvhNodesEntryLength*this.scene.bvhNodes.length;
-    const bvhNodeDataAsF32: Float32Array 
+    this.bvhNodeData 
     = new Float32Array(bvhNodesEntryLength + 12 * this.scene.bvhNodes.length);
-    // const bvhNodeDataAsU32: Uint32Array = new Uint32Array(bvhNodeDataAsF32);
-    // const bvhNodeDataAsI32: Int32Array = new Int32Array(bvhNodeDataAsF32);
 
-    bvhNodeDataAsF32[0] = this.scene.bvhNodes.length; // numNodes
-    bvhNodeDataAsF32[1] = this.scene.bvhNodes[
+    this.bvhNodeData [0] = this.scene.bvhNodes.length; // numNodes
+    this.bvhNodeData [1] = this.scene.bvhNodes[
       this.scene.bvhNodes.length - 1
     ].depth; // maxDepth
     for (let i = 2; i < bvhNodesArrayOffset; i++) { //padding
-      bvhNodeDataAsF32[i] = 0.0;
+      this.bvhNodeData [i] = 0.0;
     }
     for (let i = 0; i < this.scene.bvhNodes.length; i++) {
       const offset = bvhNodesArrayOffset + bvhNodesEntryLength*i; 
-      bvhNodeDataAsF32[offset + 0] = this.scene.bvhNodes[i].min[0];
-      bvhNodeDataAsF32[offset + 1] = this.scene.bvhNodes[i].min[1];
-      bvhNodeDataAsF32[offset + 2] = this.scene.bvhNodes[i].min[2];
-      bvhNodeDataAsF32[offset + 3] = this.scene.bvhNodes[i].hasRoot;
-      bvhNodeDataAsF32[offset + 4] = this.scene.bvhNodes[i].max[0];
-      bvhNodeDataAsF32[offset + 5] = this.scene.bvhNodes[i].max[1];
-      bvhNodeDataAsF32[offset + 6] = this.scene.bvhNodes[i].max[2];
-      bvhNodeDataAsF32[offset + 7] = 0.0;
-      bvhNodeDataAsF32[offset + 8] = this.scene.bvhNodes[i].leftChild;
-      bvhNodeDataAsF32[offset + 9] = this.scene.bvhNodes[i].objectIdx;
-      bvhNodeDataAsF32[offset + 10] = this.scene.bvhNodes[i].depth;
+      this.bvhNodeData[offset + 0] = this.scene.bvhNodes[i].min[0];
+      this.bvhNodeData[offset + 1] = this.scene.bvhNodes[i].min[1];
+      this.bvhNodeData[offset + 2] = this.scene.bvhNodes[i].min[2];
+      this.bvhNodeData[offset + 3] = this.scene.bvhNodes[i].hasRoot;
+      this.bvhNodeData[offset + 4] = this.scene.bvhNodes[i].max[0];
+      this.bvhNodeData[offset + 5] = this.scene.bvhNodes[i].max[1];
+      this.bvhNodeData[offset + 6] = this.scene.bvhNodes[i].max[2];
+      this.bvhNodeData[offset + 7] = 0.0;
+      this.bvhNodeData[offset + 8] = this.scene.bvhNodes[i].leftChild;
+      this.bvhNodeData[offset + 9] = this.scene.bvhNodes[i].objectIdx;
+      this.bvhNodeData[offset + 10] = this.scene.bvhNodes[i].depth;
       //12 bytes padding
-      bvhNodeDataAsF32[offset + 11] = 0.0;
-      // bvhNodeDataAsU32[offset + 11] = 0.0;
+      this.bvhNodeData[offset + 11] = 0.0;
     }
-    if (debug) {
-      // console.log("sphereDataAsF32: ", sphereDataAsF32)
-      // console.log(sphereDataAsU32[0],this.scene.spheres.length )
-      console.log("bvhNodeDataAsF32: ", bvhNodeDataAsF32);
-      // console.log("bvhNodeDataAsU32: ", bvhNodeDataAsU32)
-      // console.log("bvhNodeDataAsI32: ", bvhNodeDataAsI32)
-
-
+    const requiredSizeBVH = this.bvhNodeData.byteLength;
+    if (this.bvhNodesBuffer.size < requiredSizeBVH) {
+      if (isInit) {
+        this.bvhNodesBuffer.destroy();
+      }
+      this.bvhNodesBuffer = this.device.createBuffer({
+        size: requiredSizeBVH,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+      });
+      configBindGroups = true;
+      this.configureBindGroups();
     }
+    this.device.queue.writeBuffer(this.bvhNodesBuffer, 0, this.bvhNodeData);
 
-    this.device.queue.writeBuffer(this.bvhNodesBuffer, 0, bvhNodeDataAsF32, 
-      0, bvhNodesBufferNumElements);
-
-    
+    if (configBindGroups == true) {
+      this.configureBindGroups();
+    }
   }
 
   /*
