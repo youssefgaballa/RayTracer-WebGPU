@@ -35,6 +35,7 @@ struct CameraData {
 struct HitRecord {
   t: f32,
   color: vec3<f32>,
+  hitAnything: u32,
   position: vec3<f32>,
   normal: vec3<f32>,
 }
@@ -47,7 +48,8 @@ struct RenderData { // 32
   diffuseType: u32,
   hasGammaCorrection: u32,
   showBVHBoxes: u32,
-  hideRootBVHBox: u32
+  hideRootBVHBox: u32,
+  depthTestBVH: u32
 }
 
 struct BVHNode {
@@ -76,6 +78,7 @@ struct BVH {
 @group(0) @binding(3) var<uniform> renderData: RenderData;
 @group(0) @binding(4) var<storage, read_write> accumulation_buffer: array<vec4<f32>>;
 @group(0) @binding(5) var<storage, read> bvh: BVH;
+@group(0) @binding(6) var depthBuffer: texture_storage_2d<r32float, write>;
 
 
 @compute @workgroup_size(8,8,1)
@@ -110,43 +113,32 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
     Need to convert from ndc to world coordinates so that it is synchronized with the
     box shader
   */
-  let screen_pos = vec4<f32>(ndc.x, ndc.y, 0.0, 1.0); // Near plane
-  let world_target = cameraData.inverseViewProjectionMatrix * screen_pos;
-  let world_pos = world_target.xyz / world_target.w;
+  var screen_pos = vec4<f32>(ndc.x, ndc.y, 0.0, 1.0); // Near plane
+  var world_target = cameraData.inverseViewProjectionMatrix * screen_pos;
+  var world_pos = world_target.xyz / world_target.w;
   var myRay: Ray;
   myRay.origin = cameraData.cameraPos;
   myRay.direction = normalize(world_pos - myRay.origin);
-  // myRay.direction = normalize(cameraData.cameraForwards
-  // + ndc.x * cameraData.cameraRight 
-  // + ndc.y * cameraData.cameraUp);
+
 
   var outputColor: vec3<f32>;
+  var resultHitRecord: HitRecord;
   if (renderData.temporalAccumulation == 1u) {
     let jitter = vec2<f32>(random_float(&seed), random_float(&seed)) - 0.5;
     uv = (vec2f(GlobalInvocationID.xy) + 0.5 + jitter) / vec2f(canvas_size);
-    // ndc = (uv * 2.0) - 1.0;
-    // ndc.y = -ndc.y; // Flip Y for screen space
-    // ndc.x *= aspect_ratio;
-
-    // myRay.direction = normalize(
-    //   cameraData.cameraForwards + 
-    //   ndc.x * cameraData.cameraRight + 
-    //   ndc.y * cameraData.cameraUp
-    // );
-    var ndc: vec2<f32> = (uv * 2.0) - 1.0;
+    ndc= (uv * 2.0) - 1.0;
     ndc.y = -ndc.y;
-    let screen_pos = vec4<f32>(ndc.x, ndc.y, 0.0, 1.0); // Near plane
-    let world_target = cameraData.inverseViewProjectionMatrix * screen_pos;
-    let world_pos = world_target.xyz / world_target.w;
-    var myRay: Ray;
-    myRay.origin = cameraData.cameraPos;
+    screen_pos = vec4<f32>(ndc.x, ndc.y, 0.0, 1.0); // Near plane
+    world_target = cameraData.inverseViewProjectionMatrix * screen_pos;
+    world_pos = world_target.xyz / world_target.w;
     myRay.direction = normalize(world_pos - myRay.origin);
-    let new_sample_color: vec3<f32> = rayColor(myRay, &seed);
-
+    // let new_sample_color: vec3<f32> = rayColor(myRay, &seed);
+    resultHitRecord = rayColor(myRay, &seed);
+    outputColor = resultHitRecord.color;
     let pixel_index = GlobalInvocationID.y * renderData.image_width + GlobalInvocationID.x;
     if (renderData.frameCount == 1u) {
       // First frame: store the color
-      outputColor = new_sample_color;
+      outputColor = resultHitRecord.color;
     } else {
       // Subsequent frames: Blend with previous data
       let old_color = accumulation_buffer[pixel_index].rgb;
@@ -158,7 +150,7 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
         from frame 0. 
       */
       let weight = 1.0 / f32(renderData.frameCount);
-      outputColor = mix(old_color, new_sample_color, weight);
+      outputColor = mix(old_color, resultHitRecord.color, weight);
     }
     accumulation_buffer[pixel_index] = vec4<f32>(outputColor, 1.0);
 
@@ -166,36 +158,54 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
       outputColor = sqrt(outputColor);
     }
   } else {
-    outputColor = rayColor(myRay,  &seed);
+    // outputColor = rayColor(myRay,  &seed);
+    resultHitRecord = rayColor(myRay,  &seed);
+    outputColor = resultHitRecord.color;
     if (renderData.hasGammaCorrection == 1) {
       outputColor = sqrt(outputColor);
     }
   }
-  textureStore(color_buffer, canvas_pos, vec4<f32>(outputColor, 1.0));
+  if (resultHitRecord.hitAnything == 1) {
+    textureStore(color_buffer, canvas_pos, vec4<f32>(outputColor, 1.0));
+    textureStore(depthBuffer, canvas_pos, vec4<f32>(resultHitRecord.t, 0.0, 0.0, 0.0));
+  } else {
+    textureStore(color_buffer, canvas_pos, vec4<f32>(outputColor, 1.0));
+    textureStore(depthBuffer, canvas_pos, vec4<f32>(10000, 0.0, 0.0, 0.0));
+
+  }
 }
 
-fn rayColor(ray: Ray, seed: ptr<function, u32>) -> vec3<f32> {
+fn rayColor(ray: Ray, seed: ptr<function, u32>) -> HitRecord {
   var throughput = vec3<f32>(1.0, 1.0, 1.0);
   var resultingColor = vec3<f32>(0.0);
   var nearestHit: f32 = 9999;
 
   var currentRay: Ray = ray;
   let maxDepth: u32 = 30;
-
+  var resultHitRecord: HitRecord;
+  resultHitRecord.hitAnything = 0;
+  var firstHitCaptured = false;
   for (var depth: u32 = 0; depth < maxDepth; depth++) {
     var hitRecord: HitRecord;
-    var nearestHit = 9999.0;
+    var nearestHit = 10000.0;
     var hitSomething = false;
 
     for (var i: u32 = 0; i < objects.sphereCount; i++) {
       if (hit(currentRay, objects.spheres[i], 0.001, nearestHit, &hitRecord)) {
         nearestHit = hitRecord.t;
         hitSomething = true;
+        hitRecord.hitAnything = 1;
       } 
     }
     if (hitSomething) {
       var scatterDirection: vec3<f32>;
-
+      if (!firstHitCaptured) {
+        resultHitRecord.t = hitRecord.t;
+        resultHitRecord.hitAnything = 1;
+        // resultHitRecord.position = hitRecord.position;
+        // resultHitRecord.normal = hitRecord.normal;
+        firstHitCaptured = true;
+      }
       if (renderData.diffuseType == 0) { // simple diffuse
         scatterDirection = random_on_hemisphere(hitRecord.normal, seed);
       } else if (renderData.diffuseType == 1) { // lambertian
@@ -210,12 +220,17 @@ fn rayColor(ray: Ray, seed: ptr<function, u32>) -> vec3<f32> {
       resultingColor = throughput * skyColor;
       break;
     }
-    if (max(throughput.r, max(throughput.g, throughput.b)) < 0.001) {
-      break;
-    }
+      
+      resultHitRecord.hitAnything = hitRecord.hitAnything;
+      if (max(throughput.r, max(throughput.g, throughput.b)) < 0.001) {
+        break;
+      }
+      
 
-  }
-  return resultingColor;
+    }
+  resultHitRecord.color = resultingColor;
+
+  return resultHitRecord;
 }
 
 fn hit(ray: Ray, sphere: Sphere, 

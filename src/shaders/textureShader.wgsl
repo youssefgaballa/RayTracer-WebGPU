@@ -32,27 +32,31 @@ struct CameraData {
   inverseViewProjectionMatrix: mat4x4<f32>
 
 } // 64 + 64  = 128 bytes
-struct RenderData { // 32
+struct RenderData { // 36
   image_width: u32,
   image_height: u32,
   frameCount: u32,
   temporalAccumulation: u32,
+
   diffuseType: u32,
   hasGammaCorrection: u32,
   showBVHBoxes: u32,
-  hideRootBVHBox: u32
+  hideRootBVHBox: u32,
+  depthTestBVH: u32
 }
-@group(0) @binding(0) var screen_sampler : sampler; 
-@group(0) @binding(1) var color_buffer : texture_2d<f32>;
+@group(0) @binding(0) var screen_sampler : sampler; // used in textureRenderPipeline
+@group(0) @binding(1) var color_buffer : texture_2d<f32>; // used in boxPipeline and textureRenderPipeline
 
-@group(0) @binding(1) var<uniform> cameraData: CameraData;
-@group(0) @binding(2) var<uniform> renderData : RenderData;
-@group(0) @binding(3) var<storage, read> bvh: BVH;
+@group(0) @binding(1) var<uniform> cameraData: CameraData; // used in boxPipeline
+@group(0) @binding(2) var<uniform> renderData : RenderData; // used in boxPipeline
+@group(0) @binding(3) var<storage, read> bvh: BVH;// used in boxPipeline
+@group(0) @binding(4) var boxDepthTexture: texture_2d<f32>; // used in boxPipeline
 
 
 struct BoxOutput {
     @builtin(position) Position : vec4<f32>,
     @location(0) Color : vec3<f32>,
+    @location(1) world_pos : vec3<f32>, // <--- Add this
 }
 struct VertexInput {
     @location(0) unit_pos: vec3<f32>,
@@ -80,6 +84,7 @@ fn vs_box(in: VertexInput) -> BoxOutput {
     Get clip space position by view Matrix * projection matrix * world position
   */
   out.Position = cameraData.viewProjectionMatrix * vec4<f32>(world_pos, 1.0);
+  out.world_pos = world_pos;
   // before going to fragment shader, it is converted to NDC by dividing out.Position.xyz by w.
 
   // Leaf nodes green, internal nodes red
@@ -102,8 +107,43 @@ fn vs_box(in: VertexInput) -> BoxOutput {
 }
 
 @fragment
-fn fs_box(in: BoxOutput) -> @location(0) vec4<f32> {
-  return vec4<f32>(in.Color, 1.0);
+fn fs_box(
+  in: BoxOutput, 
+  ) -> @location(0) vec4<f32> {
+  if (renderData.depthTestBVH == 1) {
+    // Step 2: Load the sphere hit distance 't' from your compute texture
+    // textureLoad uses integer coordinates vec2<i32>
+    
+    let tex_coords = vec2<i32>(in.Position.xy);
+    let sphere_t = textureLoad(boxDepthTexture, tex_coords, 0).r;
+
+    // if (sphere_t > 5000.0) {
+    //     return vec4<f32>(1.0, 1.0, 1.0, 1.0); 
+    // }
+    if (sphere_t < 0.0) {
+        return vec4<f32>(1.0, 1.0, 1.0, 1.0); 
+    }
+    // Step 3: Calculate how far THIS box fragment is from the camera
+    // We use the world_pos (you'll need to add this to your BoxOutput struct)
+    let box_t = distance(cameraData.cameraPos, in.world_pos);
+    if (sphere_t < 1000.0 && box_t > sphere_t + 0.1) {
+      // return vec4<f32>(1.0, 1.0, 1.0, 1.0); 
+      discard;
+    }
+
+    // Step 4: Occlusion Test
+    // If the box is further away than the sphere, don't draw it.
+    // We add a tiny epsilon (0.01) to prevent "z-fighting" on the sphere surface.
+    if (box_t > sphere_t + 0.01) {
+      discard;
+    }
+    return vec4<f32>(in.Color, 1.0);
+  } else {
+    return vec4<f32>(in.Color, 1.0);
+
+  }
+  
+
 }
 struct VertexOutput {
     @builtin(position) Position : vec4<f32>,

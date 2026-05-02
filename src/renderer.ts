@@ -46,6 +46,10 @@ export class Renderer {
   private toggleHideRootBVHBoxBtn: HTMLButtonElement 
     = document.getElementById("hideRootBVHBox-btn") as HTMLButtonElement;
 
+  private depthTestBVH = 0;
+  private toggleDepthTestBVHBtn: HTMLButtonElement 
+    = document.getElementById("depthBVH-btn") as HTMLButtonElement;
+
   /* Buffers, Samplers, and Textures */
   private renderDataBuffer!: GPUBuffer;
   private colorBuffer!: GPUTexture;
@@ -56,6 +60,7 @@ export class Renderer {
   private bvhNodesBuffer!: GPUBuffer;
   private boxVertexBuffer!: GPUBuffer;
   private boxIndexBuffer!: GPUBuffer;
+  private boxDepthTexture!: GPUTexture;
 
   private depthTexture!: GPUTexture;
 
@@ -104,7 +109,8 @@ export class Renderer {
       || this.toggleDiffuseTypeBtn == null
       || this.toggleHasGammaCorrectionnBtn == null
       || this.toggleShowBVHBoxesBtn == null
-    || this.toggleHideRootBVHBoxBtn == null
+      || this.toggleHideRootBVHBoxBtn == null
+      || this.toggleDepthTestBVHBtn == null
     ) {
       return;
     } 
@@ -122,6 +128,9 @@ export class Renderer {
 
     this.hideRootBVHBox 
     = this.toggleHideRootBVHBoxBtn.classList.contains("active") ? 1 : 0;
+
+    this.depthTestBVH 
+    = this.toggleDepthTestBVHBtn.classList.contains("active") ? 1 : 0;
 
     // Register event listeners
     this.toggleTemporalAccumulationBtn.addEventListener('click', () => {
@@ -142,12 +151,16 @@ export class Renderer {
     this.toggleShowBVHBoxesBtn.addEventListener('click', () => {
       this.toggleShowBVHBoxesBtn?.classList.toggle('active');
       this.showBVHBoxes = this.showBVHBoxes == 0 ? 1: 0;
-      // this.frameCount = 0;
     });
 
     this.toggleHideRootBVHBoxBtn.addEventListener('click', () => {
       this.toggleHideRootBVHBoxBtn?.classList.toggle('active');
       this.hideRootBVHBox = this.hideRootBVHBox == 0 ? 1: 0;
+    });
+
+    this.toggleDepthTestBVHBtn.addEventListener('click', () => {
+      this.toggleDepthTestBVHBtn?.classList.toggle('active');
+      this.depthTestBVH = this.depthTestBVH == 0 ? 1: 0;
       // this.frameCount = 0;
     });
     
@@ -161,6 +174,7 @@ export class Renderer {
     this.renderData[5] = this.hasGammaCorrection;
     this.renderData[6] = this.showBVHBoxes;
     this.renderData[7] = this.hideRootBVHBox
+    this.renderData[8] = this.depthTestBVH
 
     this.device.queue.writeBuffer(
       this.renderDataBuffer,
@@ -204,33 +218,12 @@ export class Renderer {
     for (let i = 32; i <= 64; i++) {
       this.cameraData[i] = this.scene.camera.inverseViewProjectionMatrix[i - 32];
     }
-    // this.cameraData[32] = this.scene.camera.inverseViewProjectionMatrix[0],
-    // this.cameraData[33] = this.scene.camera.inverseViewProjectionMatrix[1],
-    // this.cameraData[18] = this.scene.camera.inverseViewProjectionMatrix[2],
-    // this.cameraData[19] = this.scene.camera.inverseViewProjectionMatrix[3],
-
-    // this.cameraData[20] = this.scene.camera.inverseViewProjectionMatrix[4],
-    // this.cameraData[21] = this.scene.camera.inverseViewProjectionMatrix[5],
-    // this.cameraData[22] = this.scene.camera.inverseViewProjectionMatrix[6],
-    // this.cameraData[23] = this.scene.camera.inverseViewProjectionMatrix[7],
-
-    // this.cameraData[24] = this.scene.camera.inverseViewProjectionMatrix[8],
-    // this.cameraData[25] = this.scene.camera.inverseViewProjectionMatrix[9],
-    // this.cameraData[26] = this.scene.camera.inverseViewProjectionMatrix[10],
-    // this.cameraData[27] = this.scene.camera.inverseViewProjectionMatrix[11],
-
-    // this.cameraData[28] = this.scene.camera.inverseViewProjectionMatrix[12],
-    // this.cameraData[29] = this.scene.camera.inverseViewProjectionMatrix[13],
-    // this.cameraData[30] = this.scene.camera.inverseViewProjectionMatrix[14],
-    // this.cameraData[31] = this.scene.camera.inverseViewProjectionMatrix[15],
     this.device.queue.writeBuffer(
       this.cameraBuffer,
       0, // Offset in bytes: 
       this.cameraData
     );
     if (this.scene.camera.hasMoved == true && this.temporalAccumulation == 1) {
-      // commandEncoder.clearBuffer(this.accumulationBuffer, 0, 
-      //   this.canvas.width * this.canvas.height * 16);
       Renderer.frameCount = 0;
     }
     if (debug) {
@@ -457,7 +450,16 @@ export class Renderer {
               hasDynamicOffset: false
           }
         },
+        {
+          binding: 6,// @binding(5) - boxDepthTexture
+          visibility: GPUShaderStage.COMPUTE,
+          storageTexture: {
+            access: "write-only",
+            format: "r32float",
+            viewDimension: "2d",
+          },
 
+        },
       ],
     });
 
@@ -494,7 +496,10 @@ export class Renderer {
               buffer: this.bvhNodesBuffer,
           }
         },
-
+        {
+          binding: 6,
+          resource: this.boxDepthTexture,
+        },
       ],
     });
 
@@ -502,17 +507,17 @@ export class Renderer {
     this.textureBindGroupLayout = this.device.createBindGroupLayout({
       entries: [
         {
-          binding: 0, // @binding(0)
+          binding: 0, // @binding(0) - screen_sampler
           visibility: GPUShaderStage.FRAGMENT,
           sampler: {},
         },
         {
-          binding: 1, // @binding(1)
+          binding: 1, // @binding(1) - color_buffer
           visibility: GPUShaderStage.FRAGMENT,
           texture: {},
         },
         {
-          binding: 2,// @binding(2)
+          binding: 2,// @binding(2) - renderData
           visibility: GPUShaderStage.VERTEX,
           buffer: {
               type: "read-only-storage",
@@ -551,14 +556,14 @@ export class Renderer {
         },
         {
           binding: 1, // @binding(1) - cameraBuffer
-          visibility: GPUShaderStage.VERTEX,
+          visibility: GPUShaderStage.VERTEX  | GPUShaderStage.FRAGMENT,
           buffer: {
             type: "uniform",
           }  
         },
         {
           binding: 2, // @binding(2) - renderDataBuffer
-          visibility: GPUShaderStage.VERTEX,
+          visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
           buffer: {
             type: "uniform"
           }
@@ -571,7 +576,15 @@ export class Renderer {
               hasDynamicOffset: false
           }
         },
-
+        {
+          binding: 4, // @binding(1) - boxDepthTexture
+          visibility: GPUShaderStage.FRAGMENT,
+          texture: {
+            // Change from the default 'float' to 'unfilterable-float'
+            sampleType: 'unfilterable-float', 
+            viewDimension: '2d',
+          },
+        },
       ],
     });
     this.boxBindGroup = this.device.createBindGroup({
@@ -597,6 +610,10 @@ export class Renderer {
           resource: {
               buffer: this.bvhNodesBuffer,
           }
+        },
+        {
+          binding: 4, // @binding(4) - boxDepthTexture
+          resource: this.boxDepthTexture.createView()
         },
       ],
     });
@@ -763,7 +780,7 @@ export class Renderer {
 
     this.renderData = new Uint32Array([
       Renderer.canvas.width, Renderer.canvas.height, Renderer.frameCount, this.temporalAccumulation, 
-      this.diffuseType, this.hasGammaCorrection, this.showBVHBoxes, this.hideRootBVHBox
+      this.diffuseType, this.hasGammaCorrection, this.showBVHBoxes, this.hideRootBVHBox, this.depthTestBVH
     ]);
     this.device.queue.writeBuffer(this.renderDataBuffer, 0, this.renderData);
 
@@ -811,7 +828,6 @@ export class Renderer {
       bvhNodeDataAsF32[offset + 5] = this.scene.bvhNodes[i].max[1];
       bvhNodeDataAsF32[offset + 6] = this.scene.bvhNodes[i].max[2];
       bvhNodeDataAsF32[offset + 7] = 0.0;
-      // bvhNodeDataAsU32[offset + 8] = this.scene.bvhNodes[i].depth;
       bvhNodeDataAsF32[offset + 8] = this.scene.bvhNodes[i].leftChild;
       bvhNodeDataAsF32[offset + 9] = this.scene.bvhNodes[i].objectIdx;
       bvhNodeDataAsF32[offset + 10] = this.scene.bvhNodes[i].depth;
@@ -855,6 +871,16 @@ export class Renderer {
         GPUTextureUsage.COPY_DST |
         GPUTextureUsage.STORAGE_BINDING |
         GPUTextureUsage.TEXTURE_BINDING, // storage texture
+    });
+
+    this.boxDepthTexture = this.device.createTexture({
+      label: 'boxDepthTexture',
+      size: {
+        width: Renderer.canvas.width, // 800 px
+        height: Renderer.canvas.height, // 600 px
+      },
+      format: 'r32float',
+      usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.TEXTURE_BINDING,
     });
 
     // this.colorBufferView = this.colorBuffer.createView();
@@ -915,7 +941,7 @@ export class Renderer {
 
     this.renderDataBuffer = this.device.createBuffer({
       label: 'renderDataBuffer',
-      size: 32, 
+      size: 36, 
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
