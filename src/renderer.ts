@@ -38,9 +38,12 @@ export class Renderer {
     = document.getElementById("diffuseType") as HTMLSelectElement;
 
   private hasGammaCorrection = 1;
-  private toggleHasGammaCorrectionnBtn: HTMLButtonElement 
+  private toggleHasGammaCorrectionBtn: HTMLButtonElement 
     = document.getElementById("hasGammaCorrection-btn") as HTMLButtonElement;
 
+  private enableScattering = 1;
+  private toggleEnableScatteringBtn: HTMLButtonElement 
+    = document.getElementById("enableScattering-btn") as HTMLButtonElement;
   /*
 
   */
@@ -111,6 +114,8 @@ export class Renderer {
     this.createDepthTexture();
     this.configureBindGroups();
     this.configurePipeline();
+    console.log(this.bvhNodeData, this.bvhNodeData.byteLength, this.bvhNodeData.length)
+
   }
 
   public registerEventListeners() {
@@ -118,7 +123,8 @@ export class Renderer {
     if (this.toggleTemporalAccumulationBtn == null
       || this.toggleAccumulateFramesBtn == null
       || this.toggleDiffuseTypeBtn == null
-      || this.toggleHasGammaCorrectionnBtn == null
+      || this.toggleHasGammaCorrectionBtn == null
+      || this.toggleEnableScatteringBtn == null
       || this.toggleBVHBtn == null
       || this.toggleShowBVHBoxesBtn == null
       || this.toggleHideRootBVHBoxBtn == null
@@ -136,7 +142,10 @@ export class Renderer {
     this.diffuseType = parseInt(this.toggleDiffuseTypeBtn.value);
 
     this.hasGammaCorrection 
-    = this.toggleHasGammaCorrectionnBtn.classList.contains("active") ? 1 : 0;
+    = this.toggleHasGammaCorrectionBtn.classList.contains("active") ? 1 : 0;
+
+    this.enableScattering 
+    = this.toggleEnableScatteringBtn.classList.contains("active") ? 1 : 0;
 
     this.toggleBVH 
     = this.toggleBVHBtn.classList.contains("active") ? 1 : 0;
@@ -167,9 +176,15 @@ export class Renderer {
       const target = event.target as HTMLSelectElement;
       this.diffuseType = parseInt(target.value);
     });
-    this.toggleHasGammaCorrectionnBtn.addEventListener('click', () => {
-      this.toggleHasGammaCorrectionnBtn?.classList.toggle('active');
+    this.toggleHasGammaCorrectionBtn.addEventListener('click', () => {
+      this.toggleHasGammaCorrectionBtn?.classList.toggle('active');
       this.hasGammaCorrection = this.hasGammaCorrection == 0 ? 1: 0;
+      // this.frameCount = 0;
+    });
+
+    this.toggleEnableScatteringBtn.addEventListener('click', () => {
+      this.toggleEnableScatteringBtn?.classList.toggle('active');
+      this.enableScattering = this.enableScattering == 0 ? 1: 0;
       // this.frameCount = 0;
     });
 
@@ -704,7 +719,7 @@ export class Renderer {
     this.renderData = new Uint32Array([
       Renderer.canvas.width, Renderer.canvas.height, Renderer.frameCount, this.temporalAccumulation, 
       this.diffuseType, this.hasGammaCorrection, this.showBVHBoxes, 
-      this.hideRootBVHBox, this.depthTestBVH, this.toggleBVH
+      this.hideRootBVHBox, this.depthTestBVH, this.toggleBVH, this.enableScattering
     ]);
     this.device.queue.writeBuffer(this.renderDataBuffer, 0, this.renderData);
 
@@ -729,14 +744,15 @@ export class Renderer {
     const bvhNodesEntryLength = 12; 
     const bvhNodesArrayOffsetBytes = 16; 
     const bvhNodesArrayOffset = bvhNodesArrayOffsetBytes / 4; // 4
-    const bvhNodesBufferNumElements = bvhNodesArrayOffset + bvhNodesEntryLength*this.scene.bvhNodes.length;
+    const bvhNodesBufferNumElements = bvhNodesArrayOffset 
+      + bvhNodesEntryLength*this.scene.bvhNodes.length;
     this.bvhNodeData 
-    = new Float32Array(bvhNodesEntryLength + 12 * this.scene.bvhNodes.length);
+    = new Float32Array(bvhNodesArrayOffset/4 + bvhNodesEntryLength * this.scene.bvhNodes.length);
 
     this.bvhNodeData [0] = this.scene.bvhNodes.length; // numNodes
-    this.bvhNodeData [1] = this.scene.bvhNodes[
-      this.scene.bvhNodes.length - 1
-    ].depth; // maxDepth
+    // this.bvhNodeData [1] = this.scene.bvhNodes[
+    //   this.scene.bvhNodes.length - 1
+    // ].depth; // maxDepth
     for (let i = 2; i < bvhNodesArrayOffset; i++) { //padding
       this.bvhNodeData [i] = 0.0;
     }
@@ -749,11 +765,15 @@ export class Renderer {
       this.bvhNodeData[offset + 4] = this.scene.bvhNodes[i].max[0];
       this.bvhNodeData[offset + 5] = this.scene.bvhNodes[i].max[1];
       this.bvhNodeData[offset + 6] = this.scene.bvhNodes[i].max[2];
-      this.bvhNodeData[offset + 7] = 0.0;
+      this.bvhNodeData[offset + 7] = this.scene.bvhNodes[i].sphereCount;
       this.bvhNodeData[offset + 8] = this.scene.bvhNodes[i].leftChild;
       this.bvhNodeData[offset + 9] = this.scene.bvhNodes[i].rightChild;
       this.bvhNodeData[offset + 10] = this.scene.bvhNodes[i].objectIdx;
       this.bvhNodeData[offset + 11] = this.scene.bvhNodes[i].depth;
+      this.bvhNodeData[offset + 12] = 0;
+      this.bvhNodeData[offset + 13] = 0;
+      this.bvhNodeData[offset + 14] = 0;
+      this.bvhNodeData[offset + 15] = 0;
     }
     const requiredSizeBVH = this.bvhNodeData.byteLength;
     if (this.bvhNodesBuffer.size < requiredSizeBVH) {
@@ -864,7 +884,7 @@ export class Renderer {
 
     this.renderDataBuffer = this.device.createBuffer({
       label: 'renderDataBuffer',
-      size: 40, 
+      size: 44, 
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
@@ -876,7 +896,7 @@ export class Renderer {
     
     this.bvhNodesBuffer = this.device.createBuffer({
       label: 'bvhNodesBuffer',
-      size: 16 + 48 * this.scene.bvhNodes.length,
+      size: 4 + 48 * this.scene.bvhNodes.length,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
 
@@ -992,5 +1012,6 @@ export class Renderer {
       "fallback",
     ) as HTMLElement;
     fallback_text.textContent = text;
+    Renderer.canvas.hidden = true;
   }
 }

@@ -23,26 +23,15 @@
     </div>
     <div class="control-group">
       <label for="numSpheres">Number of Spheres: <span id="numSpheres-val"></span></label> </br>
-      <input type="range" id="numSpheres" class="range" name="numSpheres" min="2" max="750" value="5">
+      <input type="range" id="numSpheres" class="range" name="numSpheres" min="2" max="500" value="5">
     </div>
 
   </div>
   <div id="controls">
-    
-    <button id="hasGammaCorrection-btn" class="toggle-btn active">Toggle Gamma Correction</button>
 
-    <div class="control-group">
-      <label for="diffuseType">Diffuse type: </label>
-      <br/>
-      <select name="diffuseType" id="diffuseType">
-        <option value="0" selected>Simple Diffuse</option>
-        <option value="1">Lambertian</option>
-
-      </select>
-    </div>
     <div class="control-group">
       <h3>BVH</h3>
-      <button id="toggleBVH-btn" class="toggle-btn active">Toggle BVH</button> </br>
+      <button id="toggleBVH-btn" class="toggle-btn ">Toggle BVH</button> </br>
 
       <button id="showBVHBoxes-btn" class="toggle-btn active">Toggle BVH Boxes Visual</button>
       <button id="hideRootBVHBox-btn" class="toggle-btn active">Hide Root BVH Boxes</button>
@@ -64,8 +53,20 @@
       <input type="radio" id="scene2" name="scene" value="2" >
       <label for="scene">Scene 2</label>
 
-  </div>
-   
+    </div>
+    <div class="control-group">
+      <label for="diffuseType">Visuals: </label>
+      <br/>
+      <button id="hasGammaCorrection-btn" class="toggle-btn active">Toggle Gamma Correction</button>
+      <br/>
+      <button id="enableScattering-btn" class="toggle-btn active">Enable Scattering</button>
+      <br/>
+      <select name="diffuseType" id="diffuseType">
+        <option value="0" selected>Simple Diffuse</option>
+        <option value="1">Lambertian</option>
+
+      </select>
+    </div>
 
   </div>
 </div>

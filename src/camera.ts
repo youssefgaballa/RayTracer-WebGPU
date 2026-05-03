@@ -242,6 +242,9 @@ export class Camera {
       } else if (key == " ") {
         this.keysPressed.up = true;
         this.hasMoved = true;
+      }  else if (key == "c") {
+        this.keysPressed.down = true;
+        this.hasMoved = true;
       } 
       if (event.ctrlKey == true) {
         this.keysPressed.down = true;
@@ -263,6 +266,8 @@ export class Camera {
         this.keysPressed.a = false;
       } else if (key == " ") {
         this.keysPressed.up = false;
+      } else if (key == "c") {
+        this.keysPressed.down = false;
       }
       if (key === "Control") {
         this.keysPressed.down = false;

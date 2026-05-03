@@ -2,7 +2,7 @@ struct BVHNode {
   min: vec3<f32>,
   containsRoot: f32,
   max: vec3<f32>,
-  p1: f32,
+  sphereCount: f32,
   left_child: f32,
   right_child: f32,  
   object_index: f32, 
@@ -44,6 +44,7 @@ struct RenderData { // 32
   hideRootBVHBox: u32,
   depthTestBVH: u32,
   useBVH: u32,
+  enableScattering: u32
 }
 
 @group(0) @binding(0) var screen_sampler : sampler; // used in textureRenderPipeline
