@@ -3,14 +3,7 @@ import { Sphere } from "./sphere";
 import { debug } from "./main";
 import  { BVHNodeObject, BVHNode } from "./BVH/bvhnode";
 import { Renderer } from "./renderer";
-import  { vec3 } from "gl-matrix";
 
-// export class Node {
-//     minCorner: vec3
-//     leftChild: number
-//     maxCorner: vec3
-//     sphereCount: number
-// }
 const debug1 = true;
 export class Scene {
   spheres: Sphere[];
@@ -32,10 +25,13 @@ export class Scene {
   numSpheresSpan: HTMLButtonElement 
   = document.getElementById("numSpheres-val") as HTMLButtonElement;
 
+  objectControls: HTMLDivElement 
+  = document.getElementById("object-controls") as HTMLDivElement;
+
   sceneRadios: NodeListOf<HTMLInputElement>
   = document.querySelectorAll('input[name="scene"]');
   scene!: number;
-  newScene: boolean = false;
+  static updatedScene: boolean;
   constructor() {
     this.spheres = new Array(); // empty
     this.camera = new Camera([1.0, 4.0, -20.0]);
@@ -43,7 +39,19 @@ export class Scene {
     this.registerInputListeners();
     
     this.buildScene();
+    this.createUI();
+  }
 
+
+
+  public debug() {
+
+    if (debug && debug1) {
+      console.log("scene.spheres: ", this.spheres);
+      console.log("scene.bvhnodes: ", this.bvhNodes);
+      console.log("scene.bvhNodeObject: ", this.bvhNodeObject);
+      // console.log("scene: ", this);
+    }
   }
 
   public buildScene() {
@@ -58,13 +66,114 @@ export class Scene {
     this.sphereCount = this.spheres.length;
 
     this.buildBVH();
-    this.newScene = true;
-    if (debug && debug1) {
-      console.log("scene.bvhnodes: ", this.bvhNodes);
-      console.log("scene.spheres: ", this.spheres);
+    Scene.updatedScene = true;
+    // this.debug();
+  }
 
-      // console.log("scene: ", this);
-    }
+  public createUI() {
+    this.spheres.forEach((sphere: Sphere, idx: number) => {
+      if (idx >= 12) return;
+      if (idx == 0) return;
+
+      const details = document.createElement("details");
+      const summary = document.createElement("summary");
+      summary.textContent = `Sphere ${idx}`;
+
+      details.appendChild(summary);
+  
+      const ul = document.createElement("ul");
+  
+      // Map labels to Float32Array indices
+      // X --> 0, Y --> 1, Z --> 2
+      const map: Record<string, number> = { 'X': 0, 'Y': 1, 'Z': 2 };
+  
+      const createControl = (label: 'X' | 'Y' | 'Z' | 'Radius' | 'Color', 
+        min?: number, max?: number, step?: number) => {
+        const li = document.createElement("li");
+        li.textContent = `${label}: `;
+
+        if (label === 'Color') { // Setup color picker
+          const picker = document.createElement("input");
+          picker.type = "color";
+          
+          // Helper to convert Float32 (0-1) to Hex for the picker
+          const toHex = (c: number) => Math.round(Math.max(0, Math.min(1, c)) * 255).toString(16).padStart(2, '0');
+          picker.value = `#${toHex(sphere.color[0])}${toHex(sphere.color[1])}${toHex(sphere.color[2])}`;
+          
+          picker.addEventListener("input", (e) => {
+            const hex = (e.target as HTMLInputElement).value;
+            // Update the Float32Array directly
+            sphere.color[0] = parseInt(hex.slice(1, 3), 16) / 255;
+            sphere.color[1] = parseInt(hex.slice(3, 5), 16) / 255;
+            sphere.color[2] = parseInt(hex.slice(5, 7), 16) / 255;
+            Renderer.frameCount = 1;
+            Scene.updatedScene = true; // Signals update() to re-run writeBuffers and buildBVH
+          });
+          li.appendChild(picker);
+        } else if (label === "Radius") { // Radius
+          const radiusSlider = document.createElement("input");
+          radiusSlider.type = "range";
+          if (min == undefined || max == undefined || step == undefined) return;
+          radiusSlider.min = min.toString();
+          radiusSlider.max = max.toString();
+          radiusSlider.step = step.toString();
+          radiusSlider.value = sphere.radius.toString();
+
+          const radiusLabel = document.createElement("span");
+          radiusLabel.textContent = radiusSlider.value;
+
+          radiusSlider.addEventListener("input", (event: InputEvent) => {
+            const newR = parseFloat((event.target as HTMLInputElement).value);
+            radiusLabel.textContent = newR.toString();
+            sphere.radius = newR;
+            Renderer.frameCount = 1;
+
+            Scene.updatedScene = true; 
+          });
+          li.appendChild(radiusSlider);
+          li.appendChild(radiusLabel);
+        } else { // X, Y, Z
+          // Cooresponds to one of X, Y, Z
+          const posSlider = document.createElement("input");
+          posSlider.type = "range";
+          if (min == undefined || max == undefined || step == undefined) return;
+          posSlider.min = min.toString();
+          posSlider.max = max.toString();
+          posSlider.step = step.toString();
+          
+          
+          posSlider.value = sphere.position[map[label]].toString();
+
+          const posLabel = document.createElement("span");
+          posLabel.textContent = posSlider.value;
+
+          posSlider.addEventListener("input", (e) => {
+            const newPos = parseFloat((e.target as HTMLInputElement).value);
+            posLabel.textContent = newPos.toString();
+
+            // this.spheres[idx].position[map[label]] = newPos;
+            sphere.position[map[label]] = newPos;            
+            Renderer.frameCount = 1;
+
+            Scene.updatedScene = true; 
+          });
+          li.appendChild(posSlider);
+          li.appendChild(posLabel);
+        }
+        ul.appendChild(li);
+      };
+  
+      // Correctly mapped labels
+      createControl("X", -15, 15, 0.1);
+      createControl("Y", -15, 15, 0.1);
+      createControl("Z", -15, 15, 0.1);
+      createControl("Radius", 0.1, 5, 0.1);
+      createControl("Color");
+  
+      details.appendChild(ul);
+      this.objectControls.appendChild(details);
+     
+    })
   }
 
   public registerInputListeners() {
@@ -99,7 +208,6 @@ export class Scene {
   }
 
   public createRandomSpheres(num: number) {
-
     let i = 0;
     for (let j = 0; j < num; j++) {
       this.addObject(new Sphere(
@@ -113,9 +221,9 @@ export class Scene {
           0.3 + 0.7 * Math.random(), 
           0.3 + 0.7 * Math.random(),
           0.3 + 0.7 * Math.random(),
-        ]
+        ],
+        0
       ), i++)
-     
 
     }
 
@@ -126,24 +234,24 @@ export class Scene {
     let i = 0;
     const bigR = 2000
     this.addObject(new Sphere(
-      [0.0, -bigR, 0.0], bigR, [0.0, 0.7, 0.3]
+      [0.0, -bigR, 0.0], bigR, [0.0, 0.7, 0.3],0
     ), i++) // floor - 0
     .addObject(new Sphere(
-      [5.0, 3.0, 0.0], 3, [1.0, 1.0, 0.0]  //yellow - 1
+      [5.0, 3.0, 0.0], 3, [1.0, 1.0, 0.0],1  //yellow - 1
     ), i++) 
     .addObject(new Sphere(
-      [-5.0, 1.9, -12], 1.0, [1.0, 0.2, 0.0] //orange - 2
+      [-5.0, 1.9, -12], 1.0, [1.0, 0.2, 0.0],0 //orange - 2
     ), i++)
     .addObject(new Sphere(
-      [0.0, 6.3, -11.0], radius, [0.0, 1.0, 0.0] // green - 3
+      [0.0, 6.3, -11.0], radius, [0.0, 1.0, 0.0],0 // green - 3
     ), i++)
     .addObject(new Sphere(
-      [0.0, 2.3, -10.0], radius, [0.0, 0.0, 1.0] //blue - 4
+      [0.0, 2.3, -10.0], radius, [0.0, 0.0, 1.0],0 //blue - 4
     ), i++)
     .addObject(new Sphere(
-      [-2.0, 4.3, -10.0], radius, [1.0, 0.0, 1.0] // magenta -5
+      [-2.0, 4.3, -10.0], radius, [1.0, 0.0, 1.0],0 // magenta -5
     ), i++);
-
+    
   }
   public addObject(obj: Sphere, idx: number) {
     this.spheres.push(obj);
@@ -152,14 +260,15 @@ export class Scene {
   }
   
   buildBVH() {
-    if (debug){
-      console.log("sphereIndices",this.sphereIndices )
-      console.log("Renderer.toggleBVH",Renderer.toggleBVH )
-    }
+    // if (debug){
+    //   console.log("sphereIndices",this.sphereIndices )
+    //   console.log("Renderer.toggleBVH",Renderer.toggleBVH )
+    
+    // }
+    this.bvhNodes = [];
     this.bvhNodeObject = new BVHNodeObject(this.spheres, this.sphereIndices, 0, 
       this.spheres.length, 0);
     if (debug){
-      console.log("bvhNodeobject",this.bvhNodeObject )
     }
     this.rebuildBVH();
     
@@ -173,98 +282,4 @@ export class Scene {
     }
   }
 
-//   buildBVH01() {
-//   this.sphereIndices = new Array(this.spheres.length)
-//   for (var i:number = 0; i < this.sphereCount; i += 1) {
-//     this.sphereIndices[i] = i;
-//   }
-
-//   this.bvhNodes = new Array(2 * this.spheres.length - 1);
-//   for (var i:number = 0; i < 2 * this.spheres.length - 1; i += 1) {
-//     this.bvhNodes[i] = BVHNode.noArgs();
-//   }
-
-//   var root: BVHNode = this.bvhNodes[0];
-//   root.leftChild = 0;
-//   root.sphereCount = this.spheres.length;
-//   root.hasRoot = 1; // Mark the actual root
-//   this.nodesUsed = 1
-
-//   this.updateBounds(0);
-//   this.subdivide(0);
-// }
-
-// updateBounds(nodeIndex: number) {
-
-//   var node: BVHNode = this.bvhNodes[nodeIndex];
-//   node.min = new Float32Array([999999, 999999, 999999]);
-//   node.max = new Float32Array([-999999, -999999, -999999]);
-
-//   for (var i: number = 0; i < node.sphereCount; i += 1) {
-//     const sphere: Sphere = this.spheres[this.sphereIndices[node.leftChild + i]];
-//     const axis: vec3 = [sphere.radius, sphere.radius, sphere.radius];
-
-//     var temp: vec3 = [0, 0, 0]
-//     vec3.subtract(temp, sphere.position, axis);
-//     vec3.min(node.min, node.min, temp);
-
-//     vec3.add(temp, sphere.position, axis);
-//     vec3.max(node.max, node.max, temp);
-//   }
-// }
-
-// subdivide(nodeIndex: number) {
-
-//   var node: BVHNode = this.bvhNodes[nodeIndex];
-
-//   if (node.sphereCount <= 2) {
-//     return;
-//   }
-
-//   var extent: vec3 = [0, 0, 0];
-//   vec3.subtract(extent, node.max, node.min);
-//   var axis: number = 0;
-//   if (extent[1] > extent[axis]) {
-//     axis = 1;
-//   }
-//   if (extent[2] > extent[axis]) {
-//     axis = 2;
-//   }
-
-//   const splitPosition: number = node.min[axis] + extent[axis] / 2;
-
-//   var i: number = node.leftChild;
-//   var j: number = i + node.sphereCount - 1;
-
-//   while (i <= j) {
-//     if (this.spheres[this.sphereIndices[i]].position[axis] < splitPosition) {
-//       i += 1;
-//     } else {
-//       var temp: number = this.sphereIndices[i];
-//       this.sphereIndices[i] = this.sphereIndices[j];
-//       this.sphereIndices[j] = temp;
-//       j -= 1;
-//     }
-//   }
-
-//   var leftCount: number = i - node.leftChild;
-//   if (leftCount == 0 || leftCount == node.sphereCount) {
-//       return;
-//   }
-
-//   // const leftChildIndex: number = this.bvhNodesUsed++;
-//   // const rightChildIndex: number = this.bvhNodesUsed++;
-//   const leftChildIndex: number = this.nodesUsed;
-//   this.nodesUsed += 1;
-
-
-//   this.bvhNodes[leftChildIndex].leftChild = node.leftChild;
-//   this.bvhNodes[leftChildIndex].sphereCount = leftCount;
-
-//   node.leftChild = leftChildIndex;
-//   node.sphereCount = 0;
-
-//   this.updateBounds(leftChildIndex);
-//   this.subdivide(leftChildIndex);
-// }
 }

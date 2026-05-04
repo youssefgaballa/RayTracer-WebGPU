@@ -8,12 +8,13 @@ export class BVHNode {
   // objectIdx: number
   // depth: number = 0;
   leftChild: number
-  skipLink: number = -1
-  objectIdx: number
   rightChild: number
+  objectIdx: number
+
+  depth: number = 0
+  skipLink: number = -1
   sphereCount: number
   hasRoot: number
-  depth: number = 0
 
   min: Float32Array
   max: Float32Array
@@ -210,7 +211,9 @@ export class BVHNodeObject {
         node.containsSphereZero ? 1 : 0,    // hasRoot
         isLeaf ? node.sphereIndices.length : 0 // sphereCount
       );
-
+      if (isLeaf) {
+        flatNode.depth = node.sphereIndices.length; 
+      }
       flatNodes.push(flatNode);
 
       if (!isLeaf) {

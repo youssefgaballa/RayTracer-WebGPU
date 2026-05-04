@@ -2,18 +2,26 @@ import { aabb } from "./BVH/aabb";
 import { vec3 } from 'gl-matrix';
 import { debug } from "./main";
 const debug1 = false;
+// const materialType = {
+//   matte: 0,
+//   metallic: 1,
+//   dielectric: 2,
+//   emissive: 3
+// }
+
 export class Sphere {
   // Vec3 of world coordinates of sphere center
   position: Float32Array
   radius: number
   color: Float32Array
   bbox: aabb;
+  material: number;
 
-  constructor(center: number[], radius: number, color: number[]) {
+  constructor(center: number[], radius: number, color: number[], material: number) {
     this.position = new Float32Array(center);
     this.radius = radius;
     this.color = new Float32Array(color);
-
+    this.material = material;
     const a = vec3.create();
     const b = vec3.create();
     const rvec = new Float32Array([radius, radius, radius])

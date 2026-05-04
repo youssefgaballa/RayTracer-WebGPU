@@ -97,7 +97,6 @@ fn vs_box(in: VertexInput) -> BoxOutput {
   // Interpolate based on depth
   let leafColor = vec3<f32>(0.0, 1.0, 0.0);    // Neon Green
   let internalColor = vec3<f32>(1.0, 0.0, 0.0); // Red
-  // let maxVisDepth = 20.0;
   let depthNormalized = clamp(f32(node.depth) / f32(bvh.maxDepth), 0.0, 1.0);
   out.Color = mix(
     internalColor, 

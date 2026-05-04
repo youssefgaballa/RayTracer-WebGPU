@@ -53,12 +53,8 @@ export class Camera {
   inverseViewProjectionMatrix!: mat4;
 
   speed: number = 0.006;
-  /*
-  Needed so that movement speed is independent of frame rate
-  */
-  deltaT: number = 1;
-  lastFrame: number;
-  keysPressed: keysPressedType = {
+  
+  keysPressed: keysPressedType =  {
     w: false,
     a: false,
     s: false,
@@ -96,7 +92,6 @@ export class Camera {
     this.pitch = this.pitchInterval.clamp(Math.PI / 2);
     this.yaw = Math.PI / 2;
     this.fov = 75;
-    this.lastFrame = performance.now();// milliseconds
     this.recalculate_vectors();
     this.registerInputListeners();
   }
@@ -110,7 +105,7 @@ export class Camera {
     ]);
 
     const fov_radians = (this.fov * Math.PI) / 180.0;
-    const fov_factor = Math.tan(fov_radians / 2.0);
+    // const fov_factor = Math.tan(fov_radians / 2.0);
 
     this.right = new Float32Array([0.0, 0.0, 0.0]);
     vec3.cross(this.right, [0.0, 1.0, 0.0], this.forwards);
@@ -173,8 +168,6 @@ export class Camera {
   }
 
   update() {
-    this.deltaT = performance.now() - this.lastFrame;
-    this.lastFrame = performance.now();
     let moveDir = vec3.create(); 
 
     // Forward / Backward
@@ -204,7 +197,7 @@ export class Camera {
     }
     // Normalize moveDir so that diagonal movement and axial movement is at the same speed.
     vec3.normalize(moveDir, moveDir);
-    vec3.scale(moveDir, moveDir, this.speed * this.deltaT);
+    vec3.scale(moveDir, moveDir, this.speed * Renderer.deltaT);
     vec3.add(this.position, this.position, moveDir);
 
     if (this.keysPressed.w == false &&
@@ -226,6 +219,7 @@ export class Camera {
 
     window.addEventListener('keydown', (event) => {
       // console.log(event.key)
+      if (!this.isPointerLocked) return;
       const key = event.key;
       if (key == "w") {
         this.keysPressed.w = true;
@@ -255,6 +249,7 @@ export class Camera {
   
     window.addEventListener('keyup', (event) => {
       // console.log(event.key)
+      if (!this.isPointerLocked) return;
       const key = event.key;
       if (key == "w") {
         this.keysPressed.w = false;
@@ -279,7 +274,7 @@ export class Camera {
 
     Renderer.canvas.addEventListener('mousedown', async (event) => {
       // 0 = Left click
-      if (event.button === 0) {
+      if (event.button === 0 && !this.isPointerLocked) {
         this.mouseActive = true;
         await Renderer.canvas.requestPointerLock();
         // this.isPointerLocked = true;
@@ -288,38 +283,38 @@ export class Camera {
     });
     Renderer.canvas.addEventListener('mouseup', (event) => {
       // 0 = Left click
-      if (event.button === 0) {
+      if (event.button === 0 && this.isPointerLocked) {
         this.mouseActive = false;
         document.exitPointerLock();
         // this.isPointerLocked = false;
       }
     });
-    document.addEventListener('pointerlockchange', (event) => {
+    document.addEventListener('pointerlockchange', () => {
       this.isPointerLocked = (document.pointerLockElement === Renderer.canvas);
+      if (!this.isPointerLocked) {
+        this.keysPressed = {
+          w: false, a: false, s: false, d: false, 
+          up: false, down: false
+      };
+
+        this.mouseActive = false;
+        this.hasMoved = false; 
+    }
+
       
   }, false);
 
     window.addEventListener('mousemove', (e) => {
-      // if (this.isPointerLocked == false) {
-      //   this.mouseDelta.offsetX = e.movementX;
-      //   this.mouseDelta.offsetY = e.movementY;
-      // }
+
       if (document.pointerLockElement === Renderer.canvas && this.isPointerLocked == true) {
         if (Math.abs(e.movementX) > 500 || Math.abs(e.movementY) > 500) {
           return;
       }
-        // this.mouseDelta.x += e.movementX - this.mouseDelta.offsetX;
-        // this.mouseDelta.y += e.movementY - this.mouseDelta.offsetY;
-
         this.yaw -= e.movementX * this.sensitivity;
         this.pitch = this.pitchInterval.clamp(this.pitch + e.movementY * this.sensitivity);
         this.recalculate_vectors()
         this.hasMoved = true;
-        if (debug) {
-          // console.log(e.movementX * this.sensitivity, e.movementY * this.sensitivity)
-          // console.log(this.pitch, this.yaw)
-        }
-          
+
       }
   }, false);
 

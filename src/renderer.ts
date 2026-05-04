@@ -19,11 +19,17 @@ export class Renderer {
 
   /* Actual Data that is fed into Buffers and Textures */
   private scene!: Scene;
+  private sceneDataLength!: number;
   private sceneData!: ArrayBuffer
   private renderData!: Uint32Array;
   private cameraData!: Float32Array; // 16 elements (including padding)
   private bvhNodeData!: Float32Array;
   public static frameCount = 1;
+  /*
+  Needed so that movement speed is independent of frame rate
+  */
+  static deltaT: number = 1;
+  static lastFrame: number;
   /* Set when user clicks respective button. see registerEventListeners(). */
   private temporalAccumulation = 0;
   private toggleTemporalAccumulationBtn: HTMLButtonElement 
@@ -80,6 +86,7 @@ export class Renderer {
   private depthTexture!: GPUTexture;
 
   /* Bind Groups and Bind Group Layouts */
+  private updateBindGroups: boolean = false;
   private computeBindGroupLayout!: GPUBindGroupLayout;
   private computeBindGroup!: GPUBindGroup;
   private textureBindGroupLayout!: GPUBindGroupLayout;
@@ -116,7 +123,7 @@ export class Renderer {
     this.createDepthTexture();
     this.configureBindGroups();
     this.configurePipeline();
-    console.log(this.bvhNodeData, this.bvhNodeData.byteLength, this.bvhNodeData.length)
+    // console.log(this.bvhNodeData, this.bvhNodeData.byteLength, this.bvhNodeData.length)
 
   }
 
@@ -166,81 +173,114 @@ export class Renderer {
     = this.toggleDepthTestBVHBtn.classList.contains("active") ? 1 : 0;
 
     // Register event listeners
-    this.toggleTemporalAccumulationBtn.addEventListener('click', () => {
+    this.toggleTemporalAccumulationBtn.addEventListener('click', (event: MouseEvent) => {
+      if (event.detail === 0) return; 
       this.toggleTemporalAccumulationBtn?.classList.toggle('active');
       this.temporalAccumulation = this.temporalAccumulation == 0 ? 1: 0;
       // Renderer.frameCount = 1;
     });
-    this.toggleAccumulateFramesBtn.addEventListener('click', () => {
+    this.toggleAccumulateFramesBtn.addEventListener('click', (event: MouseEvent) => {
+      if (event.detail === 0) return; 
+
       this.toggleAccumulateFramesBtn?.classList.toggle('active');
       this.accumulateFrames = this.accumulateFrames == 0 ? 1: 0;
       Renderer.frameCount = 1;
     });
     this.toggleDiffuseTypeBtn.addEventListener('change', (event: Event) => {
       // console.log('Selected value:', event.target.value);
+
       const target = event.target as HTMLSelectElement;
       this.diffuseType = parseInt(target.value);
     });
-    this.toggleHasGammaCorrectionBtn.addEventListener('click', () => {
+    this.toggleHasGammaCorrectionBtn.addEventListener('click', (event: MouseEvent) => {
+      if (event.detail === 0) return; 
       this.toggleHasGammaCorrectionBtn?.classList.toggle('active');
       this.hasGammaCorrection = this.hasGammaCorrection == 0 ? 1: 0;
       // this.frameCount = 0;
     });
 
-    this.toggleEnableScatteringBtn.addEventListener('click', () => {
+    this.toggleEnableScatteringBtn.addEventListener('click', (event: MouseEvent) => {
+      if (event.detail === 0) return; 
+
       this.toggleEnableScatteringBtn?.classList.toggle('active');
       this.enableScattering = this.enableScattering == 0 ? 1: 0;
       // this.frameCount = 0;
     });
 
-    this.toggleBVHBtn.addEventListener('click', () => {
+    this.toggleBVHBtn.addEventListener('click', (event: MouseEvent) => {
+      if (event.detail === 0) return; 
+
       this.toggleBVHBtn?.classList.toggle('active');
       Renderer.toggleBVH 
         = this.toggleBVHBtn.classList.contains("active") ? 
         (this.toggleStacklessBVHBtn.classList.contains("active") ? 2 : 1) : 
         0;
         if (this.toggleBVHBtn.classList.contains("active")) {
-          this.scene.rebuildBVH;
+          this.scene.rebuildBVH();
+          if (debug) console.log(this.scene.bvhNodes);
         }
       // this.toggleBVH = this.toggleBVH == 0 ? 1: 0;
     });
-    this.toggleStacklessBVHBtn.addEventListener('click', () => {
+    this.toggleStacklessBVHBtn.addEventListener('click', (event: MouseEvent) => {
+      if (event.detail === 0) return; 
+
       this.toggleStacklessBVHBtn?.classList.toggle('active');
       Renderer.toggleBVH 
         = this.toggleBVHBtn.classList.contains("active") ? 
         (this.toggleStacklessBVHBtn.classList.contains("active") ? 2 : 1) : 
         0;
         if (this.toggleBVHBtn.classList.contains("active")) {
-          this.scene.rebuildBVH;
+          this.scene.rebuildBVH();
+          if (debug) console.log(this.scene.bvhNodes);
+
         }
       // this.toggleBVH = this.toggleBVH == 0 ? 1: 0;
     });
-    this.toggleShowBVHBoxesBtn.addEventListener('click', () => {
+    this.toggleShowBVHBoxesBtn.addEventListener('click', (event: MouseEvent) => {
+      if (event.detail === 0) return; 
+
       this.toggleShowBVHBoxesBtn?.classList.toggle('active');
       this.showBVHBoxes = this.showBVHBoxes == 0 ? 1: 0;
     });
 
-    this.toggleHideRootBVHBoxBtn.addEventListener('click', () => {
+    this.toggleHideRootBVHBoxBtn.addEventListener('click', (event: MouseEvent) => {
+      if (event.detail === 0) return; 
+
       this.toggleHideRootBVHBoxBtn?.classList.toggle('active');
       this.hideRootBVHBox = this.hideRootBVHBox == 0 ? 1: 0;
     });
 
-    this.toggleDepthTestBVHBtn.addEventListener('click', () => {
+    this.toggleDepthTestBVHBtn.addEventListener('click', (event: MouseEvent) => {
+      if (event.detail === 0) return; 
+
       this.toggleDepthTestBVHBtn?.classList.toggle('active');
       this.depthTestBVH = this.depthTestBVH == 0 ? 1: 0;
       // this.frameCount = 0;
     });
     
   }
-  d = false;
   public update() {
+    Renderer.deltaT = performance.now() - Renderer.lastFrame;
+    Renderer.lastFrame = performance.now();
+
     Renderer.frameCount++;
-    this.scene.camera.update();
-    // this.writeBuffers(false);
-    if (!this.d) {
-      console.log("camera", this.cameraData)
-      this.d = true;
+    this.writeRenderDataBuffer();
+    if (this.scene.camera.hasMoved == true) {
+      this.scene.camera.update();
+      this.writeCameraBuffer(false);
+      Renderer.frameCount = 1;
     }
+    if (Scene.updatedScene ==  true) {
+      this.scene.buildBVH();
+      this.writeSpheresBuffer(false);
+      this.writeBVHNodesBuffer();
+      this.configureBindGroups();
+      Scene.updatedScene = false;
+      Renderer.frameCount = 1;
+      this.scene.debug();
+
+    }
+
     if (this.scene.camera.hasMoved == true
       && this.accumulateFrames == 0
     ) {
@@ -251,10 +291,8 @@ export class Renderer {
     && this.accumulateFrames == 0) {
       Renderer.frameCount = 1;
     }
-    if (this.scene.newScene) {
-      this.writeBuffers(false);
-    }
-
+    
+    
   }
 
   public render() {
@@ -643,17 +681,23 @@ export class Renderer {
         },
       ],
     });
+    this.updateBindGroups = false;
   }
 
+  private writeRenderDataBuffer() {
+    this.renderData = new Uint32Array([
+      Renderer.canvas.width, Renderer.canvas.height, Renderer.frameCount, this.temporalAccumulation, 
+      this.diffuseType, this.hasGammaCorrection, this.showBVHBoxes, 
+      this.hideRootBVHBox, this.depthTestBVH, Renderer.toggleBVH, this.enableScattering
+    ]);
+    this.device.queue.writeBuffer(this.renderDataBuffer, 0, this.renderData);
+  }
 
   /*
-    Writes to the camera buffer with values
-    from the current state of the camera (orientation, position).
-    Writes to the spheres buffer with the values from the
-    scene's sphere member (array of sphere types).
+  Writes to the camera buffer with values
+  from the current state of the camera (orientation, position).
   */
-  private writeBuffers(isInit: boolean) {
-    let configBindGroups: boolean = false;
+  private writeCameraBuffer(isInit: boolean) {
     // Write to Camera Buffer:
     /*
       Format of CameraData struct:
@@ -690,34 +734,37 @@ export class Renderer {
 
     );
 
+  }
+
+  private writeSpheresBuffer(isInit: boolean) {
     // Write to Spheres Buffer:
     const sphereStructSizeBytes = //32
       4 * 3 +  // position 
       4 +      // radius
       4 * 3 +  // color
-      4;       // padding
+      4;       // material
     const entryLength = 8; 
     // const positionOffset = 0;
     // const radiusOffset = 3 * 4; // 12
     // const colorOffset = 4 * 4; // 16
     // const stride = 4 * 8; // 32
-    const expectedSphereSize = 4*4 + sphereStructSizeBytes * this.scene.spheres.length;
-
+    this.sceneDataLength = 4*4 + sphereStructSizeBytes * this.scene.spheres.length;
     if (isInit == true) {
       this.sceneData = new ArrayBuffer(
-        4*4 + sphereStructSizeBytes * this.scene.spheres.length
+        this.sceneDataLength
       );
     }
     
-    if (this.sceneData.byteLength !== expectedSphereSize) {
-      this.sceneData = new ArrayBuffer(expectedSphereSize);
-      // You will also need to recreate this.spheresBuffer here!
+    // need to recreate the spheres buffer if new ones are added or removed
+    if (this.sceneData.byteLength !== this.sceneDataLength) {
+      this.sceneData = new ArrayBuffer(this.sceneDataLength);
+      // Recreate this.spheresBuffer 
       this.spheresBuffer.destroy();
       this.spheresBuffer = this.device.createBuffer({
-          size: expectedSphereSize,
+          size: this.sceneDataLength,
           usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
       });
-      configBindGroups = true;
+      this.updateBindGroups = true;
       // this.configureBindGroups();
     }
     const sphereDataAsF32: Float32Array = new Float32Array(this.sceneData);
@@ -734,26 +781,17 @@ export class Renderer {
       sphereDataAsF32[offset + 4] = this.scene.spheres[i].color[0];
       sphereDataAsF32[offset + 5] = this.scene.spheres[i].color[1];
       sphereDataAsF32[offset + 6] = this.scene.spheres[i].color[2];
-      sphereDataAsF32[offset + 7] = 0.0;
+      sphereDataAsF32[offset + 7] = this.scene.spheres[i].material;
     }
-
-
     this.device.queue.writeBuffer(this.spheresBuffer, 0,
       this.sceneData,
       0,
       this.sceneData.byteLength
     );
+  }
 
-    
-    this.renderData = new Uint32Array([
-      Renderer.canvas.width, Renderer.canvas.height, Renderer.frameCount, this.temporalAccumulation, 
-      this.diffuseType, this.hasGammaCorrection, this.showBVHBoxes, 
-      this.hideRootBVHBox, this.depthTestBVH, Renderer.toggleBVH, this.enableScattering
-    ]);
-    this.device.queue.writeBuffer(this.renderDataBuffer, 0, this.renderData);
-
+  private writeBVHNodesBuffer() {
     // Write to BVH Nodes Buffer:
-    
     /*
       Format of bvhNodeBuffer:
       // numNodes: u32 - 4 bytes
@@ -812,12 +850,31 @@ export class Renderer {
         size: requiredSizeBVH,
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
       });
-      configBindGroups = true;
+      this.updateBindGroups = true;
       // this.configureBindGroups();
     }
     this.device.queue.writeBuffer(this.bvhNodesBuffer, 0, this.bvhNodeData);
+  }
 
-    if (configBindGroups == true) {
+  /*
+
+    Writes to the spheres buffer with the values from the
+    scene's sphere member (array of sphere types).
+  */
+  private writeBuffers(isInit: boolean) {
+    
+    this.writeCameraBuffer(isInit);
+
+    
+    
+
+    this.writeRenderDataBuffer();
+    // these functions may resize the spheresBuffer and/or BVHNodeBuffer
+    // that would require reconfiguring the bind group
+    this.writeSpheresBuffer(isInit);
+    this.writeBVHNodesBuffer();
+
+    if (this.updateBindGroups == true) {
       this.configureBindGroups();
     }
   }
@@ -904,11 +961,11 @@ export class Renderer {
     // cooresponds to @binding(2) in compute Shader
     this.spheresBuffer = this.device.createBuffer({
       label: 'spheresBuffer',
-      size: 4*4 + ((4 * 8) * this.scene.spheres.length),
+      size: this.sceneDataLength,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
 
-    // cooresponds to @binding(2) in compute Shader
+    // cooresponds to @binding(3) in compute Shader
 
     this.renderDataBuffer = this.device.createBuffer({
       label: 'renderDataBuffer',
@@ -980,6 +1037,12 @@ export class Renderer {
   */
   private createScene() {
     this.scene = new Scene();
+    const sphereStructSizeBytes = //32
+      4 * 3 +  // position 
+      4 +      // radius
+      4 * 3 +  // color
+      4;       // material
+    this.sceneDataLength = 4*4 + sphereStructSizeBytes * this.scene.spheres.length;
 
   }
 

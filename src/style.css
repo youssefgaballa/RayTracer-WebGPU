@@ -2,6 +2,7 @@
   --text: #6b6375;
   --text-h: #08060d;
   --bg: #fff;
+  --border: #000;
   --active-bg: #afffba;
   --border: #e5e4e7;
   --code-bg: #f4f3ec;
@@ -36,8 +37,8 @@
     --text: #9ca3af;
     --text-h: #f3f4f6;
     --bg: #16171d;
+    --border: #ffffff;
     --active-bg: #073a00;
-    --border: #2e303a;
     --code-bg: #1f2028;
     --accent: #c084fc;
     --accent-bg: rgba(192, 132, 252, 0.15);
@@ -78,7 +79,10 @@ body {
 
 }
 .control-group {
-  border: 1px solid black;
+  border-color: var(--border);
+  border-width: 1px;
+  border-style: solid;
+  /* border: 1px solid black; */
   padding: 0.5rem;
   margin-top:0.5rem;
 }
@@ -105,4 +109,47 @@ body {
 #fallback:empty {
   display: none;
 
+}
+
+details {
+  padding: 0.5rem;
+  border-color: var(--border);
+  border-style: solid;
+  border-width: 1px;
+  margin: 0.5rem;
+  cursor:pointer;
+  font-weight: bold;
+}
+
+/* li {
+  display: flex;
+  justify-content: center;
+}
+li > * {
+  flex-shrink: 0;
+  overflow: hidden;
+} */
+ h3 {
+  font-family: var(--heading);
+ }
+
+li {
+  display: flex;
+  flex-wrap: wrap;       /* Allow wrapping on small screens */
+  justify-content: space-between; /* Space text and slider apart */
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+li > input[type="range"] {
+  flex: 1 1 120px;       /* Allow slider to grow, but give it a base min-width */
+  min-width: 0;          /* Crucial: allows flex items to shrink below content size */
+  max-width: 100%;
+}
+
+li > span {
+  min-width: 5ch;        /* Prevents the value text from jumping around */
+  text-align: right;
+  font-family: var(--mono);
 }
