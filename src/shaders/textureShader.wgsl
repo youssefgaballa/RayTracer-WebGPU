@@ -1,11 +1,14 @@
 struct BVHNode {
   min: vec3<f32>,
-  containsRoot: f32,
+  leftChild: f32,
+
   max: vec3<f32>,
-  sphereCount: f32,
-  left_child: f32,
-  right_child: f32,  
-  object_index: f32, 
+  skipLink: f32,
+  
+  containsRoot: f32,
+  rightChild: f32,  
+  // numChildren: f32,
+  objectIndex: f32, 
   depth: f32,
 }  // 12 * 4 = 48 bytes. aligned to 16 bytes = sizeof(vec3f)
 

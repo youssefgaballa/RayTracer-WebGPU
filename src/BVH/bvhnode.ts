@@ -10,8 +10,8 @@ export class BVHNode {
   leftChild: number
   skipLink: number = -1
   objectIdx: number
-  sphereCount: number
   rightChild: number
+  sphereCount: number
   hasRoot: number
   depth: number = 0
 
@@ -197,45 +197,59 @@ export class BVHNodeObject {
 
     // Helper to traverse and assign skip indices
     function traverse(node: BVHNodeObject) {
-        const currentIndex = flatNodes.length;
-        const isLeaf = !node.leftChild && !node.rightChild;
+      const currentIndex = flatNodes.length;
+      const isLeaf = !node.leftChild && !node.rightChild;
 
-        // Create the flat node
-        // We temporarily put -1 in leftChild; we will fill it with the skip index later
-        const flatNode = new BVHNode(
-            new Float32Array([node.bbox.x.min, node.bbox.y.min, node.bbox.z.min]),
-            -1, // This will become our 'skipIndex'
-            new Float32Array([node.bbox.x.max, node.bbox.y.max, node.bbox.z.max]),
-            -1, // rightChild (unused in stackless, or used for padding)
-            isLeaf ? node.sphereIndices[0] : -1, // objectIdx
-            node.containsSphereZero ? 1 : 0,    // hasRoot
-            isLeaf ? node.sphereIndices.length : 0 // sphereCount
-        );
+      // Create the flat node
+      const flatNode = new BVHNode(
+        new Float32Array([node.bbox.x.min, node.bbox.y.min, node.bbox.z.min]),
+        -1, // This will become our 'skipIndex'
+        new Float32Array([node.bbox.x.max, node.bbox.y.max, node.bbox.z.max]),
+        -1, // rightChild (unused in stackless, or used for padding)
+        isLeaf ? node.sphereIndices[0] : -1, // objectIdx
+        node.containsSphereZero ? 1 : 0,    // hasRoot
+        isLeaf ? node.sphereIndices.length : 0 // sphereCount
+      );
 
-        flatNodes.push(flatNode);
+      flatNodes.push(flatNode);
 
-        if (!isLeaf) {
-          // In a depth-first flattening, the left child of an internal node
-          // is always the node pushed immediately after it.
-          flatNode.leftChild = currentIndex + 1;
+      if (!isLeaf) {
+        // In a depth-first flattening, the left child of an internal node
+        // is always the node pushed immediately after it.
+        flatNode.leftChild = currentIndex + 1;
 
-          if (node.leftChild) traverse(node.leftChild);
-          if (node.rightChild) traverse(node.rightChild);
+        // if (node.leftChild) traverse(node.leftChild);
+        // if (node.rightChild) traverse(node.rightChild);
+        if (node.leftChild) {
+          traverse(node.leftChild);
+        }
+
+        // The right child starts exactly where the left subtree ended
+        flatNode.rightChild = flatNodes.length;
+        
+        if (node.rightChild) {
+            traverse(node.rightChild);
+        }
       } else {
-          // For leaves, leftChild is often used to point back to the 
-          // sphere buffer start index.
-          flatNode.leftChild = node.sphereIndices[0];
+        // For leaves, leftChild is often used to point back to the 
+        // sphere buffer start index.
+        // flatNode.leftChild = node.sphereIndices[0];
+        flatNode.leftChild = -1;
+        flatNode.rightChild = -1;
       }
 
-        // The "Miss Link": If a ray misses this node, it should jump past 
-        // this node AND all of its descendants.
-        // That location is the current length of the array after the recursion.
-        flatNode.skipLink = flatNodes.length; 
+      // The "Miss Link": If a ray misses this node, it should jump past 
+      // this node AND all of its descendants.
+      // That location is the current length of the array after the recursion.
+      flatNode.skipLink = flatNodes.length; 
     }
 
     traverse(root);
     return flatNodes;
 }
+/*
+* Converts the tree structure into a flat array that the GPU can read
+*/
   static flatten(root: BVHNodeObject): BVHNode[] {
     this.markPathToSphereZero(root);
     const flatNodes: BVHNode[] = [];
@@ -279,51 +293,7 @@ export class BVHNodeObject {
     traverse(root);
     return flatNodes;
   }
-  /*
-  * Converts the tree structure into a flat array that the GPU can read
-*/
-  // static flatten(root: BVHNodeObject): BVHNode[] {
-  //   this.markPathToSphereZero(root);
-  //   const flatNodes: BVHNode[] = [];
-  
-  //   function traverse(node: BVHNodeObject) {
-  //     const currentIndex = flatNodes.length;
-  
-  //     // A node is a leaf if it has no children
-  //     const isLeaf = node.leftChild === null && node.rightChild === null;
-  
-  //     const flatNode = new BVHNode(
-  //       new Float32Array([node.bbox.x.min, node.bbox.y.min, node.bbox.z.min]),
-  //       -1,
-  //       new Float32Array([node.bbox.x.max, node.bbox.y.max, node.bbox.z.max]),
-  //       -1,
-  //       isLeaf ? node.sphereIndices[0] : -1, // Store the first sphere index if leaf
-  //       0
-  //     );
-  
-  //     // OPTIONAL: Use the 'depth' field to store how many spheres are in this leaf
-  //     // This allows the GPU to loop through multiple spheres (e.g., 1-4)
-  //     if (isLeaf) {
-  //       flatNode.depth = node.sphereIndices.length; 
-  //     }
-  
-  //     flatNodes.push(flatNode);
-  
-  //     if (!isLeaf) {
-  //       // Internal Node logic
-  //       flatNode.leftChild = currentIndex + 1;
-  //       traverse(node.leftChild!);
-        
-  //       flatNode.rightChild = flatNodes.length;
-  //       traverse(node.rightChild!);
-  //     }
-      
-  //     flatNode.hasRoot = node.containsSphereZero ? 1 : 0;
-  //   }
-  
-  //   traverse(root);
-  //   return flatNodes;
-  // }
+
 
 
 }

@@ -14,15 +14,17 @@ import  { vec3 } from "gl-matrix";
 const debug1 = true;
 export class Scene {
   spheres: Sphere[];
-  camera: Camera;
-  bvhNodes!: BVHNode[];
   numSpheres!: number;
-  bvhNodesUsed: number = 0;
   sphereCount!: number
-  // nodes: Node[]
-  nodesUsed: number = 0
-    sphereIndices!: number[]
+  camera: Camera;
 
+  sphereIndices!: number[]
+  bvhNodes!: BVHNode[];
+  bvhNodeObject!: BVHNodeObject;
+
+  // bvhNodesUsed: number = 0;
+  // nodes: Node[]
+  // nodesUsed: number = 0
   // sphereIndices: number[]
 
   numSpheresSlider: HTMLButtonElement 
@@ -55,7 +57,7 @@ export class Scene {
     }
     this.sphereCount = this.spheres.length;
 
-    this.buildBVH1();
+    this.buildBVH();
     this.newScene = true;
     if (debug && debug1) {
       console.log("scene.bvhnodes: ", this.bvhNodes);
@@ -149,111 +151,120 @@ export class Scene {
     return this;
   }
   
-  buildBVH1() {
+  buildBVH() {
     if (debug){
       console.log("sphereIndices",this.sphereIndices )
+      console.log("Renderer.toggleBVH",Renderer.toggleBVH )
     }
-    let bvhNodeObject: BVHNodeObject = new BVHNodeObject(this.spheres, this.sphereIndices, 0, 
+    this.bvhNodeObject = new BVHNodeObject(this.spheres, this.sphereIndices, 0, 
       this.spheres.length, 0);
     if (debug){
-      console.log("bvhNodeobject",bvhNodeObject )
+      console.log("bvhNodeobject",this.bvhNodeObject )
     }
-    // this.bvhNodes = BVHNodeObject.flatten(bvhNodeObject);
-    this.bvhNodes = BVHNodeObject.flattenStackless(bvhNodeObject);
+    this.rebuildBVH();
+    
   }
 
-  buildBVH() {
-  this.sphereIndices = new Array(this.spheres.length)
-  for (var i:number = 0; i < this.sphereCount; i += 1) {
-    this.sphereIndices[i] = i;
-  }
-
-  this.bvhNodes = new Array(2 * this.spheres.length - 1);
-  for (var i:number = 0; i < 2 * this.spheres.length - 1; i += 1) {
-    this.bvhNodes[i] = BVHNode.noArgs();
-  }
-
-  var root: BVHNode = this.bvhNodes[0];
-  root.leftChild = 0;
-  root.sphereCount = this.spheres.length;
-  root.hasRoot = 1; // Mark the actual root
-  this.nodesUsed = 1
-
-  this.updateBounds(0);
-  this.subdivide(0);
-}
-
-updateBounds(nodeIndex: number) {
-
-  var node: BVHNode = this.bvhNodes[nodeIndex];
-  node.min = new Float32Array([999999, 999999, 999999]);
-  node.max = new Float32Array([-999999, -999999, -999999]);
-
-  for (var i: number = 0; i < node.sphereCount; i += 1) {
-    const sphere: Sphere = this.spheres[this.sphereIndices[node.leftChild + i]];
-    const axis: vec3 = [sphere.radius, sphere.radius, sphere.radius];
-
-    var temp: vec3 = [0, 0, 0]
-    vec3.subtract(temp, sphere.position, axis);
-    vec3.min(node.min, node.min, temp);
-
-    vec3.add(temp, sphere.position, axis);
-    vec3.max(node.max, node.max, temp);
-  }
-}
-
-subdivide(nodeIndex: number) {
-
-  var node: BVHNode = this.bvhNodes[nodeIndex];
-
-  if (node.sphereCount <= 2) {
-    return;
-  }
-
-  var extent: vec3 = [0, 0, 0];
-  vec3.subtract(extent, node.max, node.min);
-  var axis: number = 0;
-  if (extent[1] > extent[axis]) {
-    axis = 1;
-  }
-  if (extent[2] > extent[axis]) {
-    axis = 2;
-  }
-
-  const splitPosition: number = node.min[axis] + extent[axis] / 2;
-
-  var i: number = node.leftChild;
-  var j: number = i + node.sphereCount - 1;
-
-  while (i <= j) {
-    if (this.spheres[this.sphereIndices[i]].position[axis] < splitPosition) {
-      i += 1;
-    } else {
-      var temp: number = this.sphereIndices[i];
-      this.sphereIndices[i] = this.sphereIndices[j];
-      this.sphereIndices[j] = temp;
-      j -= 1;
+  rebuildBVH() {
+    if (Renderer.toggleBVH == 0 || Renderer.toggleBVH == 1) {
+      this.bvhNodes = BVHNodeObject.flatten(this.bvhNodeObject );
+    } else if (Renderer.toggleBVH == 2) { // stackless BVH
+      this.bvhNodes = BVHNodeObject.flattenStackless(this.bvhNodeObject );
     }
   }
 
-  var leftCount: number = i - node.leftChild;
-  if (leftCount == 0 || leftCount == node.sphereCount) {
-      return;
-  }
+//   buildBVH01() {
+//   this.sphereIndices = new Array(this.spheres.length)
+//   for (var i:number = 0; i < this.sphereCount; i += 1) {
+//     this.sphereIndices[i] = i;
+//   }
 
-  // const leftChildIndex: number = this.bvhNodesUsed++;
-  // const rightChildIndex: number = this.bvhNodesUsed++;
-  const leftChildIndex: number = this.nodesUsed;
-  this.nodesUsed += 1;
+//   this.bvhNodes = new Array(2 * this.spheres.length - 1);
+//   for (var i:number = 0; i < 2 * this.spheres.length - 1; i += 1) {
+//     this.bvhNodes[i] = BVHNode.noArgs();
+//   }
+
+//   var root: BVHNode = this.bvhNodes[0];
+//   root.leftChild = 0;
+//   root.sphereCount = this.spheres.length;
+//   root.hasRoot = 1; // Mark the actual root
+//   this.nodesUsed = 1
+
+//   this.updateBounds(0);
+//   this.subdivide(0);
+// }
+
+// updateBounds(nodeIndex: number) {
+
+//   var node: BVHNode = this.bvhNodes[nodeIndex];
+//   node.min = new Float32Array([999999, 999999, 999999]);
+//   node.max = new Float32Array([-999999, -999999, -999999]);
+
+//   for (var i: number = 0; i < node.sphereCount; i += 1) {
+//     const sphere: Sphere = this.spheres[this.sphereIndices[node.leftChild + i]];
+//     const axis: vec3 = [sphere.radius, sphere.radius, sphere.radius];
+
+//     var temp: vec3 = [0, 0, 0]
+//     vec3.subtract(temp, sphere.position, axis);
+//     vec3.min(node.min, node.min, temp);
+
+//     vec3.add(temp, sphere.position, axis);
+//     vec3.max(node.max, node.max, temp);
+//   }
+// }
+
+// subdivide(nodeIndex: number) {
+
+//   var node: BVHNode = this.bvhNodes[nodeIndex];
+
+//   if (node.sphereCount <= 2) {
+//     return;
+//   }
+
+//   var extent: vec3 = [0, 0, 0];
+//   vec3.subtract(extent, node.max, node.min);
+//   var axis: number = 0;
+//   if (extent[1] > extent[axis]) {
+//     axis = 1;
+//   }
+//   if (extent[2] > extent[axis]) {
+//     axis = 2;
+//   }
+
+//   const splitPosition: number = node.min[axis] + extent[axis] / 2;
+
+//   var i: number = node.leftChild;
+//   var j: number = i + node.sphereCount - 1;
+
+//   while (i <= j) {
+//     if (this.spheres[this.sphereIndices[i]].position[axis] < splitPosition) {
+//       i += 1;
+//     } else {
+//       var temp: number = this.sphereIndices[i];
+//       this.sphereIndices[i] = this.sphereIndices[j];
+//       this.sphereIndices[j] = temp;
+//       j -= 1;
+//     }
+//   }
+
+//   var leftCount: number = i - node.leftChild;
+//   if (leftCount == 0 || leftCount == node.sphereCount) {
+//       return;
+//   }
+
+//   // const leftChildIndex: number = this.bvhNodesUsed++;
+//   // const rightChildIndex: number = this.bvhNodesUsed++;
+//   const leftChildIndex: number = this.nodesUsed;
+//   this.nodesUsed += 1;
 
 
-  this.bvhNodes[leftChildIndex].leftChild = node.leftChild;
-  this.bvhNodes[leftChildIndex].sphereCount = leftCount;
+//   this.bvhNodes[leftChildIndex].leftChild = node.leftChild;
+//   this.bvhNodes[leftChildIndex].sphereCount = leftCount;
 
-  node.leftChild = leftChildIndex;
-  node.sphereCount = 0;
+//   node.leftChild = leftChildIndex;
+//   node.sphereCount = 0;
 
-  this.updateBounds(leftChildIndex);
-  this.subdivide(leftChildIndex);
-}
+//   this.updateBounds(leftChildIndex);
+//   this.subdivide(leftChildIndex);
+// }
 }

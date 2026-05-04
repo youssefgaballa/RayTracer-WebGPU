@@ -47,9 +47,11 @@ export class Renderer {
   /*
 
   */
-  private toggleBVH = 0;
+  static toggleBVH = 0;
   private toggleBVHBtn: HTMLButtonElement 
     = document.getElementById("toggleBVH-btn") as HTMLButtonElement;
+    private toggleStacklessBVHBtn: HTMLButtonElement 
+    = document.getElementById("toggleStacklessBVH-btn") as HTMLButtonElement;
 
   private showBVHBoxes = 0;
   private toggleShowBVHBoxesBtn: HTMLButtonElement 
@@ -107,8 +109,8 @@ export class Renderer {
     if (!(await this.getGPUDevice())) return;
     this.configureGPUCanvasContext();
     this.loadShaders();
-    this.createScene();
     this.registerEventListeners();
+    this.createScene();
     this.configureBuffers();
     this.writeBuffers(true);
     this.createDepthTexture();
@@ -126,6 +128,7 @@ export class Renderer {
       || this.toggleHasGammaCorrectionBtn == null
       || this.toggleEnableScatteringBtn == null
       || this.toggleBVHBtn == null
+      || this.toggleStacklessBVHBtn == null
       || this.toggleShowBVHBoxesBtn == null
       || this.toggleHideRootBVHBoxBtn == null
       || this.toggleDepthTestBVHBtn == null
@@ -147,8 +150,10 @@ export class Renderer {
     this.enableScattering 
     = this.toggleEnableScatteringBtn.classList.contains("active") ? 1 : 0;
 
-    this.toggleBVH 
-    = this.toggleBVHBtn.classList.contains("active") ? 1 : 0;
+    Renderer.toggleBVH 
+    = this.toggleBVHBtn.classList.contains("active") ? 
+    (this.toggleStacklessBVHBtn.classList.contains("active") ? 2 : 1) : 
+    0;
 
     this.showBVHBoxes 
     = this.toggleShowBVHBoxesBtn.classList.contains("active") ? 1 : 0;
@@ -164,12 +169,12 @@ export class Renderer {
     this.toggleTemporalAccumulationBtn.addEventListener('click', () => {
       this.toggleTemporalAccumulationBtn?.classList.toggle('active');
       this.temporalAccumulation = this.temporalAccumulation == 0 ? 1: 0;
-      Renderer.frameCount = 0;
+      // Renderer.frameCount = 1;
     });
     this.toggleAccumulateFramesBtn.addEventListener('click', () => {
       this.toggleAccumulateFramesBtn?.classList.toggle('active');
       this.accumulateFrames = this.accumulateFrames == 0 ? 1: 0;
-      Renderer.frameCount = 0;
+      Renderer.frameCount = 1;
     });
     this.toggleDiffuseTypeBtn.addEventListener('change', (event: Event) => {
       // console.log('Selected value:', event.target.value);
@@ -190,7 +195,25 @@ export class Renderer {
 
     this.toggleBVHBtn.addEventListener('click', () => {
       this.toggleBVHBtn?.classList.toggle('active');
-      this.toggleBVH = this.toggleBVH == 0 ? 1: 0;
+      Renderer.toggleBVH 
+        = this.toggleBVHBtn.classList.contains("active") ? 
+        (this.toggleStacklessBVHBtn.classList.contains("active") ? 2 : 1) : 
+        0;
+        if (this.toggleBVHBtn.classList.contains("active")) {
+          this.scene.rebuildBVH;
+        }
+      // this.toggleBVH = this.toggleBVH == 0 ? 1: 0;
+    });
+    this.toggleStacklessBVHBtn.addEventListener('click', () => {
+      this.toggleStacklessBVHBtn?.classList.toggle('active');
+      Renderer.toggleBVH 
+        = this.toggleBVHBtn.classList.contains("active") ? 
+        (this.toggleStacklessBVHBtn.classList.contains("active") ? 2 : 1) : 
+        0;
+        if (this.toggleBVHBtn.classList.contains("active")) {
+          this.scene.rebuildBVH;
+        }
+      // this.toggleBVH = this.toggleBVH == 0 ? 1: 0;
     });
     this.toggleShowBVHBoxesBtn.addEventListener('click', () => {
       this.toggleShowBVHBoxesBtn?.classList.toggle('active');
@@ -213,17 +236,23 @@ export class Renderer {
   public update() {
     Renderer.frameCount++;
     this.scene.camera.update();
-    this.writeBuffers(false);
-  
+    // this.writeBuffers(false);
     if (!this.d) {
       console.log("camera", this.cameraData)
       this.d = true;
     }
-
+    if (this.scene.camera.hasMoved == true
+      && this.accumulateFrames == 0
+    ) {
+      Renderer.frameCount = 1;
+  }
     if (this.scene.camera.hasMoved == true 
       && this.temporalAccumulation == 1 
-      && this.accumulateFrames == 0) {
-      Renderer.frameCount = 0;
+    && this.accumulateFrames == 0) {
+      Renderer.frameCount = 1;
+    }
+    if (this.scene.newScene) {
+      this.writeBuffers(false);
     }
 
   }
@@ -231,7 +260,7 @@ export class Renderer {
   public render() {
     this.update();
     let start: number = performance.now();
-
+    
     // Create Command Encoder to encode commands to be sent to GPU:
     const commandEncoder: GPUCommandEncoder = this.device.createCommandEncoder({
       label: "Basic Comamnd Encoder",
@@ -689,7 +718,7 @@ export class Renderer {
           usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
       });
       configBindGroups = true;
-      this.configureBindGroups();
+      // this.configureBindGroups();
     }
     const sphereDataAsF32: Float32Array = new Float32Array(this.sceneData);
     const sphereDataAsU32: Uint32Array = new Uint32Array(this.sceneData);
@@ -719,7 +748,7 @@ export class Renderer {
     this.renderData = new Uint32Array([
       Renderer.canvas.width, Renderer.canvas.height, Renderer.frameCount, this.temporalAccumulation, 
       this.diffuseType, this.hasGammaCorrection, this.showBVHBoxes, 
-      this.hideRootBVHBox, this.depthTestBVH, this.toggleBVH, this.enableScattering
+      this.hideRootBVHBox, this.depthTestBVH, Renderer.toggleBVH, this.enableScattering
     ]);
     this.device.queue.writeBuffer(this.renderDataBuffer, 0, this.renderData);
 
@@ -747,8 +776,7 @@ export class Renderer {
     const bvhNodesBufferNumElements = bvhNodesArrayOffset 
       + bvhNodesEntryLength*this.scene.bvhNodes.length;
     this.bvhNodeData 
-    = new Float32Array(bvhNodesArrayOffset/4 + bvhNodesEntryLength * this.scene.bvhNodes.length);
-
+    = new Float32Array(bvhNodesBufferNumElements);
     this.bvhNodeData [0] = this.scene.bvhNodes.length; // numNodes
     // this.bvhNodeData [1] = this.scene.bvhNodes[
     //   this.scene.bvhNodes.length - 1
@@ -761,31 +789,31 @@ export class Renderer {
       this.bvhNodeData[offset + 0] = this.scene.bvhNodes[i].min[0];
       this.bvhNodeData[offset + 1] = this.scene.bvhNodes[i].min[1];
       this.bvhNodeData[offset + 2] = this.scene.bvhNodes[i].min[2];
-      this.bvhNodeData[offset + 3] = this.scene.bvhNodes[i].hasRoot;
+      this.bvhNodeData[offset + 3] = this.scene.bvhNodes[i].leftChild;
       this.bvhNodeData[offset + 4] = this.scene.bvhNodes[i].max[0];
       this.bvhNodeData[offset + 5] = this.scene.bvhNodes[i].max[1];
       this.bvhNodeData[offset + 6] = this.scene.bvhNodes[i].max[2];
-      this.bvhNodeData[offset + 7] = this.scene.bvhNodes[i].sphereCount;
-      this.bvhNodeData[offset + 8] = this.scene.bvhNodes[i].leftChild;
-      this.bvhNodeData[offset + 9] = this.scene.bvhNodes[i].rightChild;
+      this.bvhNodeData[offset + 7] = this.scene.bvhNodes[i].skipLink;
+      this.bvhNodeData[offset + 8] = this.scene.bvhNodes[i].hasRoot;
+      this.bvhNodeData[offset + 9] = this.scene.bvhNodes[i].rightChild; 
       this.bvhNodeData[offset + 10] = this.scene.bvhNodes[i].objectIdx;
       this.bvhNodeData[offset + 11] = this.scene.bvhNodes[i].depth;
-      this.bvhNodeData[offset + 12] = 0;
-      this.bvhNodeData[offset + 13] = 0;
-      this.bvhNodeData[offset + 14] = 0;
-      this.bvhNodeData[offset + 15] = 0;
+      // this.bvhNodeData[offset + 12] = 0;
+      // this.bvhNodeData[offset + 13] = 0;
+      // this.bvhNodeData[offset + 14] = 0;
+      // this.bvhNodeData[offset + 15] = 0;
     }
     const requiredSizeBVH = this.bvhNodeData.byteLength;
-    if (this.bvhNodesBuffer.size < requiredSizeBVH) {
-      if (isInit) {
-        this.bvhNodesBuffer.destroy();
-      }
+    if (this.bvhNodesBuffer.size !== requiredSizeBVH) {
+      // if (isInit) {
+      //   this.bvhNodesBuffer.destroy();
+      // }
       this.bvhNodesBuffer = this.device.createBuffer({
         size: requiredSizeBVH,
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
       });
       configBindGroups = true;
-      this.configureBindGroups();
+      // this.configureBindGroups();
     }
     this.device.queue.writeBuffer(this.bvhNodesBuffer, 0, this.bvhNodeData);
 
@@ -896,7 +924,7 @@ export class Renderer {
     
     this.bvhNodesBuffer = this.device.createBuffer({
       label: 'bvhNodesBuffer',
-      size: 4 + 48 * this.scene.bvhNodes.length,
+      size: 4*3 + 48 * this.scene.bvhNodes.length,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
 
