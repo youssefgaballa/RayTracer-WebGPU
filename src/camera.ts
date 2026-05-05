@@ -71,7 +71,7 @@ export class Camera {
     This way the accumulation buffer doesnt contain data from previous frames in which
     the camera is in a different position
   */
-  public hasMoved: boolean = false;
+  public updatedCamera: boolean = false;
   private debug0 = false;
   /*
     When I click on the canvas, sometimes the first invocation of the
@@ -198,7 +198,7 @@ export class Camera {
       this.keysPressed.down == false &&
       this.mouseActive == false
     ) {
-      this.hasMoved = false;
+      this.updatedCamera = false;
 
     }
     this.recalculate_vectors() 
@@ -211,26 +211,26 @@ export class Camera {
       const key = event.key;
       if (key == "w") {
         this.keysPressed.w = true;
-        this.hasMoved = true;
+        this.updatedCamera = true;
       } else if (key == "d") {
         this.keysPressed.d = true;
-        this.hasMoved = true;
+        this.updatedCamera = true;
       } else if (key == "s") {
         this.keysPressed.s = true;
-        this.hasMoved = true;
+        this.updatedCamera = true;
       } else if (key == "a") {
         this.keysPressed.a = true;
-        this.hasMoved = true;
+        this.updatedCamera = true;
       } else if (key == " ") {
         this.keysPressed.up = true;
-        this.hasMoved = true;
+        this.updatedCamera = true;
       }  else if (key == "c") {
         this.keysPressed.down = true;
-        this.hasMoved = true;
+        this.updatedCamera = true;
       } 
       if (event.ctrlKey == true) {
         this.keysPressed.down = true;
-        this.hasMoved = true;
+        this.updatedCamera = true;
       }   
 
     });
@@ -285,7 +285,7 @@ export class Camera {
       };
 
         this.mouseActive = false;
-        this.hasMoved = false; 
+        this.updatedCamera = false; 
     }
 
       
@@ -300,7 +300,7 @@ export class Camera {
         this.yaw -= e.movementX * this.sensitivity;
         this.pitch = this.pitchInterval.clamp(this.pitch + e.movementY * this.sensitivity);
         this.recalculate_vectors()
-        this.hasMoved = true;
+        this.updatedCamera = true;
 
       }
   }, false);
@@ -310,7 +310,7 @@ export class Camera {
     if (target) {
       this.fov = parseInt(target.value);
       this.fovSpan.textContent = target.value;
-      Renderer.frameCount = 0;
+      this.updatedCamera = true;
     }
   });
   this.fovSlider.value = this.fov.toString();

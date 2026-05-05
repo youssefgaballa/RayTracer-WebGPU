@@ -29,6 +29,7 @@ export class Renderer {
   private cameraData!: Float32Array; // 16 elements (including padding)
   private bvhNodeData!: Float32Array;
   public static frameCount = 1;
+  public static isCheckerBoard;
   /*
   Needed so that movement speed is independent of frame rate
   */
@@ -249,10 +250,10 @@ export class Renderer {
 
     Renderer.frameCount++;
     this.writeRenderDataBuffer();
-    if (this.scene.camera.hasMoved == true) {
+    if (this.scene.camera.updatedCamera == true) {
       this.scene.camera.update();
       this.writeCameraBuffer(false);
-
+      this.scene.camera.updatedCamera = false;
       if (this.accumulateFrames == 0){
         Renderer.frameCount = 1;
       }
@@ -678,7 +679,8 @@ export class Renderer {
     this.renderData = new Uint32Array([
       Renderer.canvas.width, Renderer.canvas.height, Renderer.frameCount, this.temporalAccumulation, 
       this.diffuseType, this.hasGammaCorrection, this.showBVHBoxes, 
-      this.hideRootBVHBox, this.depthTestBVH, Renderer.toggleBVH, this.enableScattering
+      this.hideRootBVHBox, this.depthTestBVH, Renderer.toggleBVH, this.enableScattering,
+      Renderer.isCheckerBoard
     ]);
     this.device.queue.writeBuffer(this.renderDataBuffer, 0, this.renderData);
   }
@@ -1036,7 +1038,7 @@ export class Renderer {
 
     this.renderDataBuffer = this.device.createBuffer({
       label: 'renderDataBuffer',
-      size: 44, 
+      size: 48, 
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 

@@ -93,9 +93,10 @@ body {
   text-align: center;
 }
 #diagnostics {
-  min-width: 25ch;
+  /* min-width: 25ch; */
   text-align: right;
   font-size: clamp(0.2rem, 0.8vw, 1rem);
+  
 }
 
 #diffuseType {

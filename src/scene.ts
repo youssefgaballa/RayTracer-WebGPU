@@ -152,26 +152,34 @@ export class Scene {
       parseInt(skyColorHex.slice(5, 7), 16) / 255
     ])
   }
+  private getRandomInt(min: number, max: number): number {
+    
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
 
+  private getRandomFloat(min: number, max: number): number {
+    return Math.random() * (max - min) + min;
+  }
   public createRandomSpheres(num: number) {
-    let i = 0;
+    let i = 2;
+    this.addFloor();
     for (let j = 0; j < num; j++) {
       this.addSphere(new Sphere(
         [
-          -10.0 + 20.0 * Math.random(), // Range: [-10.0, 10.0)
-          0.0 + 10.0 * Math.random(), // Range: [0.0, 10.0)
-          -10.0 + 20.0 * Math.random(), // Range: [-10.0, 10.0)
+          this.getRandomFloat(-10, 10), // Range: [-10.0, 10.0)
+          this.getRandomFloat(2.0, 10), // Range: [2.0, 10.0)
+          this.getRandomFloat(-10, 10), // Range: [-10.0, 10.0)
         ], 
-        0.1 + 0.9 * Math.random(), 
-        [ // Range: [0.3, 0.1)
-          0.3 + 0.7 * Math.random(), 
-          0.3 + 0.7 * Math.random(),
-          0.3 + 0.7 * Math.random(),
+        this.getRandomFloat(0.1, 2.0), // Range: [0.1, 2.0)
+        [ 
+          this.getRandomFloat(0.0, 1.0), 
+          this.getRandomFloat(0.0, 1.0),
+          this.getRandomFloat(0.0, 1.0),
         ],
-        0, 
-        1.0,
-        0.0,
-        1.0 // index of refraction
+        this.getRandomInt(0,2), // material
+        this.getRandomFloat(0.0, 1.0), //fuzziness
+        this.getRandomFloat(0.0, 1.0), //reflectivity
+       this.getRandomFloat(0.1, 3.0) // index of refraction
       ), i++)
 
     }
@@ -181,17 +189,9 @@ export class Scene {
 
   public createScene1() {
     const radius = 0.5
-    let i = 0;
+    let i = 2;
     const bigR = 2000
-    const halfW = 200;
-    const p1 = [-halfW, 0, -halfW];
-    const p2 = [ halfW, 0, -halfW];
-    const p3 = [ halfW, 0,  halfW];
-    const p4 = [-halfW, 0,  halfW];
-    this
-    .addTriangle(new Triangle(p1, p3, p2,    [0.2, 0.8, 0.2], 0, 0, 0, 1), i++
-    )
-    .addTriangle(new Triangle(p3, p1, p4, [0.2, 0.8, 0.2], 0, 0, 0, 1), i++)
+    this.addFloor()
     // .addObject(new Sphere(
     //   [0.0, -bigR, 0.0], bigR, [0.0, 0.7, 0.3],// floor - 0
     //   0, // matte
@@ -221,7 +221,7 @@ export class Scene {
       1.0  // index of refraction
     ), i++)
     .addSphere(new Sphere(
-      [0.0, 2.3, -10.0], radius, [0.0, 0.0, 1.0],// 5: blue
+      [12.0, 3.0, -10.0], 3.0, [0.0, 0.0, 1.0],// 5: blue
       0, // matte
       1.0,
       0.0,
@@ -243,6 +243,19 @@ export class Scene {
     ), i++);
     this.createUI();
     this.debug()
+  }
+
+  public addFloor() {
+    const halfW = 200;
+    const p1 = [-halfW, 0, -halfW];
+    const p2 = [ halfW, 0, -halfW];
+    const p3 = [ halfW, 0,  halfW];
+    const p4 = [-halfW, 0,  halfW];
+    this
+    .addTriangle(new Triangle(p1, p3, p2,    [0.2, 0.8, 0.2], 0, 0, 0, 1), 0
+    )
+    .addTriangle(new Triangle(p3, p1, p4, [0.2, 0.8, 0.2], 0, 0, 0, 1), 1);
+    return this;
   }
   public addSphere(obj: Sphere, idx: number) {
     this.spheres.push(obj);
@@ -309,11 +322,12 @@ export class Scene {
 
         createControl("Width", 0.1, 1000, 0.1);
         createControl("Color");
+        createControl("Checkerboard");
 
         createControl("Reset");
       }
 
-      const createControl = (label: 'Width' | 'Color' | 'Reset', 
+      const createControl = (label: 'Width' | 'Color' | 'Checkerboard' | 'Reset', 
         min?: number, max?: number, step?: number) => {
 
         const li = document.createElement("li");
@@ -365,29 +379,58 @@ export class Scene {
           });
           li.appendChild(widthSlider);
           li.appendChild(widthLabel);
-
         } else if (label == 'Color') {
-          const colorPicker = document.createElement("input");
-          colorPicker.type = "color";
+            const colorPicker = document.createElement("input");
+            colorPicker.type = "color";
+            
+            // convert wgsl color Float32Array (each has element values from 0.0 to 1.0) to hexadecmial
+            colorPicker.value = 
+            `#${this.wgslColorToHex(obj.color[0])}${this.wgslColorToHex(obj.color[1])}${this.wgslColorToHex(obj.color[2])}`;
+  
+            colorPicker.addEventListener("input", (e) => {
+              const hex = (e.target as HTMLInputElement).value;
+              const newColor = [parseInt(hex.slice(1, 3), 16) / 255,
+                parseInt(hex.slice(3, 5), 16) / 255,parseInt(hex.slice(5, 7), 16) / 255
+              ]
+              obj.color[0] = newColor[0];
+              this.triangles[1].color[0] = newColor[0];
+              obj.color[1] = newColor[1];
+              this.triangles[1].color[1] = newColor[1];
+
+              obj.color[2] = newColor[2];
+              this.triangles[1].color[2] = newColor[2];
+
+              Renderer.frameCount = 1;
+              Scene.updatedScene = true; // causese writeBuffersto run
+            });
+            li.appendChild(colorPicker);
           
-          // convert wgsl color Float32Array (each has element values from 0.0 to 1.0) to hexadecmial
-          colorPicker.value = 
-          `#${this.wgslColorToHex(obj.color[0])}${this.wgslColorToHex(obj.color[1])}${this.wgslColorToHex(obj.color[2])}`;
+        } else if (label == 'Checkerboard') {
+          li.textContent = '';
+          const toggleCheckerBoard = document.createElement("button");
+          toggleCheckerBoard.textContent = "Toggle Checkerboard"
+          toggleCheckerBoard.classList.add("toggle-btn")
+          toggleCheckerBoard.classList.add("active")
 
-          colorPicker.addEventListener("input", (e) => {
-            const hex = (e.target as HTMLInputElement).value;
-            obj.color[0] = parseInt(hex.slice(1, 3), 16) / 255;
-            obj.color[1] = parseInt(hex.slice(3, 5), 16) / 255;
-            obj.color[2] = parseInt(hex.slice(5, 7), 16) / 255;
+          toggleCheckerBoard.addEventListener("click", (event: InputEvent) => {
+            toggleCheckerBoard.classList.toggle("active");
+            Renderer.isCheckerBoard = 
+            toggleCheckerBoard.classList.contains("active") ? 1 : 0;
             Renderer.frameCount = 1;
-            Scene.updatedScene = true; // causese writeBuffersto run
+            console.log("Renderer.isCheckerBoard", Renderer.isCheckerBoard)
+
+            Scene.updatedScene = true; 
           });
-          li.appendChild(colorPicker);
-        }
-        ul.appendChild(li);
+          const br = document.createElement("br");
+          li.appendChild(toggleCheckerBoard);
 
+          li.appendChild(br);
+          Renderer.isCheckerBoard = 
+          toggleCheckerBoard.classList.contains("active") ? 1 : 0;
 
-      }
+    }
+    ul.appendChild(li);
+  }
       createControls();
       triDetails.appendChild(ul);
       this.objectControls.appendChild(triDetails);

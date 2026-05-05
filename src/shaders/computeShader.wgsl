@@ -108,7 +108,8 @@ struct RenderData { // 4*11 = 44 bytes
   hideRootBVHBox: u32,
   depthTestBVH: u32,
   useBVH: u32,
-  enableScattering: u32
+  enableScattering: u32,
+  enableCheckerBoard: u32
 }
 
 @group(0) @binding(0) var color_buffer: texture_storage_2d<rgba8unorm, write>;
@@ -235,7 +236,7 @@ fn rayColor(ray: Ray, seed: ptr<function, u32>) -> HitRecord {
     var hitRecord: HitRecord;
     var nearestHit = 10000.0;
 
-    if (renderData.useBVH == 0){
+    if (renderData.useBVH == 0){ // looping through each object
       var nextIdx: u32 = 0;
       if (hit_triangle(currentRay, trianglesData.triangles[0], 0.001, nearestHit, &hitRecord)) {nearestHit = hitRecord.t;}
       if (hit_triangle(currentRay, trianglesData.triangles[1], 0.001, nearestHit, &hitRecord)) {nearestHit = hitRecord.t;}
@@ -250,12 +251,8 @@ fn rayColor(ray: Ray, seed: ptr<function, u32>) -> HitRecord {
         nearestHit = hitRecord.t;
       }
       
-    } else if (renderData.useBVH == 2) { // BVH stackless traversal
-      if (hitBVHStackless(currentRay, &hitRecord)) {
-
-        nearestHit = hitRecord.t;
-      }
-    }
+    } 
+    
      // interpolated between white and skycolor based on currentRay.direction.y
     let t = 0.5 * (currentRay.direction.y + 1.0);
     let skyColor = (1.0 - t) * vec3(1.0, 1.0, 1.0) + t * spheresData.skyColor;
@@ -448,15 +445,20 @@ fn hit_triangle(ray: Ray, tri: Triangle, t_min: f32, t_max: f32, outHitRecord: p
 
         (*outHitRecord).hitAnything = true;
 
-        // (*outHitRecord).color = tri.color;
-        let scale = 1.0; // Size of checks
-        let checker = (floor((*outHitRecord).position.x * scale) + floor((*outHitRecord).position.z * scale)) % 2.0;
-        var color = vec3<f32>(0.0);
-         if (abs(checker) < 0.001) {
-          (*outHitRecord).color  = vec3<f32>(1.0); // White
+        // 
+        if (renderData.enableCheckerBoard == 1) {
+          let scale = 1.0; // Size of checks
+          let checker = (floor((*outHitRecord).position.x * scale) + floor((*outHitRecord).position.z * scale)) % 2.0;
+          var color = vec3<f32>(0.0);
+          if (abs(checker) < 0.001) {
+            (*outHitRecord).color  = vec3<f32>(1.0); // White
+          } else {
+            (*outHitRecord).color  = vec3<f32>(0.0); // Black
+          }
         } else {
-          (*outHitRecord).color  = vec3<f32>(0.0); // Black
+          (*outHitRecord).color = tri.color;
         }
+       
         return true;
     }
     return false;
