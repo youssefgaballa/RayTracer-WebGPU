@@ -1,4 +1,4 @@
-struct BVHNode {
+struct BVHNode { //12 * 4 = 48 bytes.
   min: vec3<f32>,
   leftChild: f32,
 
@@ -7,22 +7,21 @@ struct BVHNode {
   
   containsRoot: f32,
   rightChild: f32,  
-  // numChildren: f32,
+  // numChildren f32,
   objectIndex: f32, 
   depth: f32,
-}  // 12 * 4 = 48 bytes. aligned to 16 bytes = sizeof(vec3f)
+}  //  aligned to 16 bytes = sizeof(vec3f)
 
-struct BVH {
+struct BVH { // 16 + sizeof(nodes) bytes
   numNodes: f32,
   maxDepth: f32,
   // 8 bytes padding
   p1: f32,
   p2: f32,
-  
   nodes: array<BVHNode>, // aligned to 16 bytes
 }
 
-struct CameraData {
+struct CameraData {// 64 + 64 + 64  = 128 bytes
   cameraPos: vec3<f32>,
   padding0: f32,
   cameraForwards: vec3<f32>,
@@ -31,12 +30,13 @@ struct CameraData {
   padding2: f32,
   cameraUp: vec3<f32>,
   padding3: f32,
+
   viewProjectionMatrix: mat4x4<f32>,
+
   inverseViewProjectionMatrix: mat4x4<f32>
+} 
 
-} // 64 + 64  = 128 bytes
-
-struct RenderData { // 32
+struct RenderData { // 4*11 = 44 bytes
   image_width: u32,
   image_height: u32,
   frameCount: u32,
@@ -94,7 +94,8 @@ fn vs_box(in: VertexInput) -> BoxOutput {
   // before going to fragment shader, it is converted to NDC by dividing out.Position.xyz by w.
 
   // Leaf nodes green, internal nodes red
-  // Interpolate based on depth
+  // Interpolate based on depth so that deeper bounding boxes are closer to grren
+  // BVH goes from red at root, to orange to green
   let leafColor = vec3<f32>(0.0, 1.0, 0.0);    // Neon Green
   let internalColor = vec3<f32>(1.0, 0.0, 0.0); // Red
   let depthNormalized = clamp(f32(node.depth) / f32(bvh.maxDepth), 0.0, 1.0);
@@ -115,33 +116,25 @@ fn vs_box(in: VertexInput) -> BoxOutput {
 fn fs_box(
   in: BoxOutput, 
   ) -> @location(0) vec4<f32> {
-  if (renderData.depthTestBVH == 1) {
-    // Step 2: Load the sphere hit distance 't' from your compute texture
-    // textureLoad uses integer coordinates vec2<i32>
-    
-    let tex_coords = vec2<i32>(in.Position.xy);
-    let sphere_t = textureLoad(boxDepthTexture, tex_coords, 0).r;
 
-    // if (sphere_t > 5000.0) {
-    //     return vec4<f32>(1.0, 1.0, 1.0, 1.0); 
-    // }
-    if (sphere_t < 0.0) {
+  if (renderData.depthTestBVH == 1) {
+    // sphere hit depth (boxDepthTexture) is written by compute texture
+    // textureLoad uses integer coordinates vec2<i32>
+    let tex_coords = vec2<i32>(in.Position.xy);
+    let boxDepth = textureLoad(boxDepthTexture, tex_coords, 0).r;
+
+    if (boxDepth < 0.0) {
         return vec4<f32>(1.0, 1.0, 1.0, 1.0); 
     }
-    // Step 3: Calculate how far THIS box fragment is from the camera
-    // We use the world_pos (you'll need to add this to your BoxOutput struct)
-    let box_t = distance(cameraData.cameraPos, in.world_pos);
-    if (sphere_t < 1000.0 && box_t > sphere_t + 0.1) {
+    
+    
+    // boxDepth is distance from the camera's world position to the box's world position
+    let boxDistance = distance(cameraData.cameraPos, in.world_pos);
+    if (boxDepth < 1000.0 && boxDistance > boxDepth) {
       // return vec4<f32>(1.0, 1.0, 1.0, 1.0); 
       discard;
     }
 
-    // Step 4: Occlusion Test
-    // If the box is further away than the sphere, don't draw it.
-    // We add a tiny epsilon (0.01) to prevent "z-fighting" on the sphere surface.
-    if (box_t > sphere_t + 0.01) {
-      discard;
-    }
     return vec4<f32>(in.Color, 1.0);
   } else {
     return vec4<f32>(in.Color, 1.0);

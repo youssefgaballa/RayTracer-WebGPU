@@ -68,7 +68,7 @@ export class Scene {
   }
 
   public buildScene() {
-    this.spheres = [];       // Clear existing spheres
+    this.spheres = [];
     this.sphereIndices = [];
     this.bvhNodes = [];
     if (this.scene === 1){
@@ -82,191 +82,7 @@ export class Scene {
     Scene.updatedScene = true;
     // this.debug();
   }
-
-  private wgslColorToHex(color: number)  {
-    Math.round(Math.max(0, Math.min(1.0, color)) * 255).toString(16).padStart(2, '0')
-  }
-
-  public createUI() {
-    this.objectControls.innerHTML = ``;
-    const h3 =  document.createElement("h3");
-    h3.textContent = "Object Controls: ";
-    this.objectControls.appendChild(h3);
-    this.spheres.forEach((sphere: Sphere, idx: number) => {
-      if (idx >= 12) return;
-      if (idx == 0) return;
-
-      const sphereDetails = document.createElement("details");
-      const sphereSummary = document.createElement("summary");
-      sphereSummary.textContent = `Sphere ${idx}`;
-
-      sphereDetails.appendChild(sphereSummary);
-  
-      const ul = document.createElement("ul");
-  
-      // Map labels to Float32Array indices
-      // X --> 0, Y --> 1, Z --> 2
-      const map: Record<string, number> = { 'X': 0, 'Y': 1, 'Z': 2 };
-  
-      const createControls = () => {
-        createControl("X", -15, 15, 0.1);
-        createControl("Y", -15, 15, 0.1);
-        createControl("Z", -15, 15, 0.1);
-        createControl("Radius", 0.1, 5, 0.1);
-        createControl("Color");
-        createControl("Material");
-        createControl("Fuzziness", 0.0, 1.0, 0.01);
-        createControl("Reset");
-      }
-      const createControl = (label: 'X' | 'Y' | 'Z' | 'Radius' | 'Color' | 'Material' | 'Fuzziness' | 'Reset', 
-        min?: number, max?: number, step?: number) => {
-        const li = document.createElement("li");
-        li.textContent = `${label}: `;
-
-        if (label == 'Reset') {
-          const resetButton = document.createElement("button");
-          resetButton.textContent = "Reset";
-          resetButton.addEventListener("click", () => {
-            // Reset properties
-            sphere.position.set(sphere.initialProperties.position);
-            sphere.radius = sphere.initialProperties.radius;
-            sphere.color.set(sphere.initialProperties.color); 
-            sphere.material = sphere.initialProperties.material;
-            sphere.fuzziness = sphere.initialProperties.fuzziness;
-
-            // update bbox
-            Renderer.frameCount = 1;
-            Scene.updatedScene = true;
-            
-            // Re-sync the entire UI for this sphere to match new values
-            // this.objectControls.innerHTML = ''; 
-            // this.createUI(); 
-            ul.innerHTML = '';
-    
-            // 4. Re-run the control generation for just this sphere's list
-            // This assumes you wrap your createControl calls in a way they can be re-executed
-            createControls();
-          });
-          li.appendChild(resetButton);
-
-        } else if (label === 'Color') { // Setup color picker
-          const picker = document.createElement("input");
-          picker.type = "color";
-          
-          // Helper to convert Float32 (0-1) to Hex for the picker
-          picker.value = 
-          `#${this.wgslColorToHex(sphere.color[0])}${this.wgslColorToHex(sphere.color[1])}${this.wgslColorToHex(sphere.color[2])}`;
-          
-          picker.addEventListener("input", (e) => {
-            const hex = (e.target as HTMLInputElement).value;
-            // Update the Float32Array directly
-            sphere.color[0] = parseInt(hex.slice(1, 3), 16) / 255;
-            sphere.color[1] = parseInt(hex.slice(3, 5), 16) / 255;
-            sphere.color[2] = parseInt(hex.slice(5, 7), 16) / 255;
-            Renderer.frameCount = 1;
-            Scene.updatedScene = true; // Signals update() to re-run writeBuffers and buildBVH
-          });
-          li.appendChild(picker);
-        } else if (label === "Material") {
-          const select = document.createElement("select");
-          const materials = ["Matte", "Metallic", "Dielectric", "Emissive"];
-          materials.forEach((name, value) => {
-            const option = document.createElement("option");
-            option.value = value.toString();
-            option.textContent = name;
-            if (sphere.material === value) option.selected = true;
-            select.appendChild(option);
-          });
-
-          select.addEventListener("change", (e) => {
-            sphere.material = parseInt((e.target as HTMLSelectElement).value);
-            Renderer.frameCount = 1;
-            Scene.updatedScene = true;
-          });
-          li.appendChild(select);
-        } else if (label === "Fuzziness") {
-          const roughnessSlider = document.createElement("input");
-          roughnessSlider.type = "range";
-          if (min == undefined || max == undefined || step == undefined) return;
-          roughnessSlider.min = min.toString();
-          roughnessSlider.max = max.toString();
-          roughnessSlider.step = step.toString();
-          roughnessSlider.value = sphere.fuzziness.toString();
-
-          const roughnessLabel = document.createElement("span");
-          roughnessLabel.textContent = roughnessSlider.value;
-
-          roughnessSlider.addEventListener("input", (e) => {
-            const val = parseFloat((e.target as HTMLInputElement).value);
-            roughnessLabel.textContent = val.toString();
-            sphere.fuzziness = val;
-            Renderer.frameCount = 1;
-            Scene.updatedScene = true;
-          });
-          li.appendChild(roughnessSlider);
-          li.appendChild(roughnessLabel);
-        } else if (label === "Radius") { // Radius
-          const radiusSlider = document.createElement("input");
-          radiusSlider.type = "range";
-          if (min == undefined || max == undefined || step == undefined) return;
-          radiusSlider.min = min.toString();
-          radiusSlider.max = max.toString();
-          radiusSlider.step = step.toString();
-          radiusSlider.value = sphere.radius.toString();
-
-          const radiusLabel = document.createElement("span");
-          radiusLabel.textContent = radiusSlider.value;
-
-          radiusSlider.addEventListener("input", (event: InputEvent) => {
-            const newR = parseFloat((event.target as HTMLInputElement).value);
-            radiusLabel.textContent = newR.toString();
-            sphere.radius = newR;
-            Renderer.frameCount = 1;
-
-            Scene.updatedScene = true; 
-          });
-          li.appendChild(radiusSlider);
-          li.appendChild(radiusLabel);
-        } else { // X, Y, Z
-          // Cooresponds to one of X, Y, Z
-          const posSlider = document.createElement("input");
-          posSlider.type = "range";
-          if (min == undefined || max == undefined || step == undefined) return;
-          posSlider.min = min.toString();
-          posSlider.max = max.toString();
-          posSlider.step = step.toString();
-          
-          
-          posSlider.value = sphere.position[map[label]].toString();
-
-          const posLabel = document.createElement("span");
-          posLabel.textContent = posSlider.value;
-
-          posSlider.addEventListener("input", (e) => {
-            const newPos = parseFloat((e.target as HTMLInputElement).value);
-            posLabel.textContent = newPos.toString();
-
-            // this.spheres[idx].position[map[label]] = newPos;
-            sphere.position[map[label]] = newPos;            
-            Renderer.frameCount = 1;
-
-            Scene.updatedScene = true; 
-          });
-          li.appendChild(posSlider);
-          li.appendChild(posLabel);
-        }
-        ul.appendChild(li);
-      };
-  
-      // Correctly mapped labels
-      createControls();
-
-  
-      sphereDetails.appendChild(ul);
-      this.objectControls.appendChild(sphereDetails);
-     
-    })
-  }
+ 
 
   public registerInputListeners() {
     this.sceneRadios.forEach(radio => {
@@ -345,7 +161,10 @@ export class Scene {
           0.3 + 0.7 * Math.random(),
           0.3 + 0.7 * Math.random(),
         ],
-        0, 1.0
+        0, 
+        1.0,
+        0.0,
+        1.0 // index of refraction
       ), i++)
 
     }
@@ -358,28 +177,53 @@ export class Scene {
     let i = 0;
     const bigR = 2000
     this.addObject(new Sphere(
-      [0.0, -bigR, 0.0], bigR, [0.0, 0.7, 0.3],
-      0, 1.0
-    ), i++) // floor - 0
-    .addObject(new Sphere(
-      [5.0, 3.0, 0.0], 3, [1.0, 1.0, 0.0],
-      1 , 0.0  //yellow - 1
+      [0.0, -bigR, 0.0], bigR, [0.0, 0.7, 0.3],// floor - 0
+      0, // matte
+      1.0, 
+      0.0,
+      1.0 // index of refraction
     ), i++) 
     .addObject(new Sphere(
-      [-5.0, 1.9, -12], 1.0, [1.0, 0.2, 0.0],
-      1, 0.2  //orange - 2
+      [5.0, 3.0, 0.0], 3, [1.0, 1.0, 0.0],//1: yellow
+      1 ,// metallic
+       0.0,
+       1.0,
+       1.0 // index of refraction
+    ), i++) 
+    .addObject(new Sphere(
+      [-5.0, 1.9, -12], 1.0, [1.0, 0.2, 0.0],//2: orange
+      1, // metallic
+      0.2,
+      0.5,
+      1.0 // index of refraction
     ), i++)
     .addObject(new Sphere(
-      [0.0, 6.3, -11.0], radius, [0.0, 1.0, 0.0],
-      0, 1.0 // green - 3
+      [0.0, 6.3, -11.0], radius, [0.0, 1.0, 0.0],//3:  green
+      0, // refractive
+      1.0,
+      0.0,
+      1.0  // index of refraction
     ), i++)
     .addObject(new Sphere(
-      [0.0, 2.3, -10.0], radius, [0.0, 0.0, 1.0],
-      0, 1.0//blue - 4
+      [0.0, 2.3, -10.0], radius, [0.0, 0.0, 1.0],// 4: blue
+      0, // matte
+      1.0,
+      0.0,
+      1.0 // index of refraction
     ), i++)
     .addObject(new Sphere(
-      [-2.0, 4.3, -10.0], radius, [1.0, 0.0, 1.0],
-      0, 1.0// magenta -5
+      [-2.0, 4.3, -10.0], radius, [1.0, 0.0, 1.0],// 5: magenta
+      0, // matte
+      1.0,
+      0.0,
+      1.0 // index of refraction 
+    ), i++)
+    .addObject(new Sphere(
+      [-2.0, 4.3, 0.0], 3, [1.0, 1.0, 0.0],// 6: yellow
+      2, // refractive
+      0.0,
+      1.0,
+      1.0 // index of refraction  
     ), i++);
     this.createUI();
 
@@ -407,11 +251,236 @@ export class Scene {
   }
 
   rebuildBVH() {
-    if (Renderer.toggleBVH == 0 || Renderer.toggleBVH == 1) {
+    if (Renderer.toggleBVH == 0 || Renderer.toggleBVH == 1) { // regular BVH
       this.bvhNodes = BVHNodeObject.flatten(this.bvhNodeObject! );
     } else if (Renderer.toggleBVH == 2) { // stackless BVH
       this.bvhNodes = BVHNodeObject.flattenStackless(this.bvhNodeObject! );
     }
+  }
+
+  
+  private wgslColorToHex(color: number)  {
+    return Math.round(Math.max(0, Math.min(1.0, color)) * 255).toString(16).padStart(2, '0')
+  }
+
+  public createUI() {
+    this.objectControls.innerHTML = ``;
+    const h3 =  document.createElement("h3");
+    h3.textContent = "Object Controls: ";
+    this.objectControls.appendChild(h3);
+    this.spheres.forEach((sphere: Sphere, idx: number) => {
+      if (idx >= 12) return;
+      if (idx == 0) return;
+
+      const sphereDetails = document.createElement("details");
+      const sphereSummary = document.createElement("summary");
+      sphereSummary.textContent = `Sphere ${idx}`;
+
+      sphereDetails.appendChild(sphereSummary);
+  
+      const ul = document.createElement("ul");
+  
+      // Map labels to Float32Array indices
+      // X --> 0, Y --> 1, Z --> 2
+      const map: Record<string, number> = { 'X': 0, 'Y': 1, 'Z': 2 };
+  
+      const createControls = () => {
+        createControl("X", -15, 15, 0.1);
+        createControl("Y", -15, 15, 0.1);
+        createControl("Z", -15, 15, 0.1);
+        createControl("Radius", 0.1, 5, 0.1);
+        createControl("Color");
+        createControl("Material");
+        createControl("Fuzziness", 0.0, 1.0, 0.01);
+        createControl("Reflectance", 0.0, 1.0, 0.01);
+        createControl("Refractance", 0.0, 1.0, 0.01);
+
+        createControl("Reset");
+      }
+      const createControl = (label: 'X' | 'Y' | 'Z' | 'Radius' | 'Color' | 'Material' 
+        | 'Fuzziness' | 'Reflectance'
+        | 'Refractance'| 'Reset', 
+        min?: number, max?: number, step?: number) => {
+        const li = document.createElement("li");
+        li.textContent = `${label}: `;
+
+        if (label == 'Reset') {
+          const resetButton = document.createElement("button");
+          resetButton.textContent = "Reset";
+          resetButton.addEventListener("click", () => {
+            // Reset properties
+            sphere.position.set(sphere.initialProperties.position);
+            sphere.radius = sphere.initialProperties.radius;
+            sphere.color.set(sphere.initialProperties.color); 
+            sphere.material = sphere.initialProperties.material;
+            sphere.fuzziness = sphere.initialProperties.fuzziness;
+
+            // update bbox
+            Renderer.frameCount = 1;
+            Scene.updatedScene = true;
+            
+            // Re-sync the the ui for this sphere
+            ul.innerHTML = '';
+            createControls();
+          });
+          li.appendChild(resetButton);
+        } else if (label === "Radius") { // Radius
+          const radiusSlider = document.createElement("input");
+          radiusSlider.type = "range";
+          if (min == undefined || max == undefined || step == undefined) return;
+          radiusSlider.min = min.toString();
+          radiusSlider.max = max.toString();
+          radiusSlider.step = step.toString();
+          radiusSlider.value = sphere.radius.toString();
+
+          const radiusLabel = document.createElement("span");
+          radiusLabel.textContent = radiusSlider.value;
+
+          radiusSlider.addEventListener("input", (event: InputEvent) => {
+            const newR = parseFloat((event.target as HTMLInputElement).value);
+            radiusLabel.textContent = newR.toString();
+            sphere.radius = newR;
+            Renderer.frameCount = 1;
+
+            Scene.updatedScene = true; 
+          });
+          li.appendChild(radiusSlider);
+          li.appendChild(radiusLabel);
+        } else if (label === 'Color') { // Setup color picker
+          const colorPicker = document.createElement("input");
+          colorPicker.type = "color";
+          
+          // convert wgsl color Float32Array (each has element values from 0.0 to 1.0) to hexadecmial
+          colorPicker.value = 
+          `#${this.wgslColorToHex(sphere.color[0])}${this.wgslColorToHex(sphere.color[1])}${this.wgslColorToHex(sphere.color[2])}`;
+
+          colorPicker.addEventListener("input", (e) => {
+            const hex = (e.target as HTMLInputElement).value;
+            sphere.color[0] = parseInt(hex.slice(1, 3), 16) / 255;
+            sphere.color[1] = parseInt(hex.slice(3, 5), 16) / 255;
+            sphere.color[2] = parseInt(hex.slice(5, 7), 16) / 255;
+            Renderer.frameCount = 1;
+            Scene.updatedScene = true; // causese writeBuffersto run
+          });
+          li.appendChild(colorPicker);
+        } else if (label === "Material") {
+          const select = document.createElement("select");
+          const materials = ["Matte", "Metallic", "Dielectric", "Emissive"];
+          materials.forEach((name, value) => {
+            const option = document.createElement("option");
+            option.value = value.toString();
+            option.textContent = name;
+            if (sphere.material === value) option.selected = true;
+            select.appendChild(option);
+          });
+
+          select.addEventListener("change", (e) => {
+            sphere.material = parseInt((e.target as HTMLSelectElement).value);
+            Renderer.frameCount = 1;
+            Scene.updatedScene = true;
+          });
+          li.appendChild(select);
+        } else if (label === "Fuzziness") {
+          const roughnessSlider = document.createElement("input");
+          roughnessSlider.type = "range";
+          if (min == undefined || max == undefined || step == undefined) return;
+          roughnessSlider.min = min.toString();
+          roughnessSlider.max = max.toString();
+          roughnessSlider.step = step.toString();
+          roughnessSlider.value = sphere.fuzziness.toString();
+
+          const roughnessLabel = document.createElement("span");
+          roughnessLabel.textContent = roughnessSlider.value;
+
+          roughnessSlider.addEventListener("input", (e) => {
+            const val = parseFloat((e.target as HTMLInputElement).value);
+            roughnessLabel.textContent = val.toString();
+            sphere.fuzziness = val;
+            Renderer.frameCount = 1;
+            Scene.updatedScene = true;
+          });
+          li.appendChild(roughnessSlider);
+          li.appendChild(roughnessLabel);
+        } else if (label === "Reflectance") {
+          const reflectivitySlider = document.createElement("input");
+          reflectivitySlider.type = "range";
+          if (min == undefined || max == undefined || step == undefined) return;
+          reflectivitySlider.min = min.toString();
+          reflectivitySlider.max = max.toString();
+          reflectivitySlider.step = step.toString();
+          reflectivitySlider.value = sphere.reflectivity.toString();
+
+          const reflectivityLabel = document.createElement("span");
+          reflectivityLabel.textContent = reflectivitySlider.value;
+
+          reflectivitySlider.addEventListener("input", (e) => {
+            const val = parseFloat((e.target as HTMLInputElement).value);
+            reflectivityLabel.textContent = val.toString();
+            sphere.reflectivity = val;
+            Renderer.frameCount = 1;
+            Scene.updatedScene = true;
+          });
+          li.appendChild(reflectivitySlider);
+          li.appendChild(reflectivityLabel);
+        } else if (label === "Refractance") {
+          const refractivitySlider = document.createElement("input");
+          refractivitySlider.type = "range";
+          if (min == undefined || max == undefined || step == undefined) return;
+          refractivitySlider.min = min.toString();
+          refractivitySlider.max = max.toString();
+          refractivitySlider.step = step.toString();
+          refractivitySlider.value = sphere.refractivity.toString();
+
+          const refractivityLabel = document.createElement("span");
+          refractivityLabel.textContent = refractivitySlider.value;
+
+          refractivitySlider.addEventListener("input", (e) => {
+            const val = parseFloat((e.target as HTMLInputElement).value);
+            refractivityLabel.textContent = val.toString();
+            sphere.refractivity = val;
+            Renderer.frameCount = 1;
+            Scene.updatedScene = true;
+          });
+          li.appendChild(refractivitySlider);
+          li.appendChild(refractivityLabel);
+        
+        } else { // X, Y, Z
+          // Cooresponds to one of X, Y, Z
+          const posSlider = document.createElement("input");
+          posSlider.type = "range";
+          if (min == undefined || max == undefined || step == undefined) return;
+          posSlider.min = min.toString();
+          posSlider.max = max.toString();
+          posSlider.step = step.toString();
+          
+          
+          posSlider.value = sphere.position[map[label]].toString();
+
+          const posLabel = document.createElement("span");
+          posLabel.textContent = posSlider.value;
+
+          posSlider.addEventListener("input", (e) => {
+            const newPos = parseFloat((e.target as HTMLInputElement).value);
+            posLabel.textContent = newPos.toString();
+
+            sphere.position[map[label]] = newPos;            
+            Renderer.frameCount = 1;
+
+            Scene.updatedScene = true; 
+          });
+          li.appendChild(posSlider);
+          li.appendChild(posLabel);
+        }
+        ul.appendChild(li);
+      };
+  
+      createControls();
+
+  
+      sphereDetails.appendChild(ul);
+      this.objectControls.appendChild(sphereDetails);
+     
+    })
   }
 
 }

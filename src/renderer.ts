@@ -335,7 +335,6 @@ export class Renderer {
     renderPassEncoder.draw(6, 2, 0, 0);
 
 
-    // if (this.renderData[6] === 1) { // Assuming index 6 is showBVHBoxes
     /*
       If we want to show BVH Boxes, run the box pipeline
     */
@@ -386,11 +385,11 @@ export class Renderer {
       },
     });
 
-    const depthStencilState: GPUDepthStencilState = {
-      format: 'depth24plus',
-      depthWriteEnabled: true,
-      depthCompare: 'equal', // Only draw if the new pixel is "less" (closer) than the old one
-  };
+  //   const depthStencilState: GPUDepthStencilState = {
+  //     format: 'depth24plus',
+  //     depthWriteEnabled: true,
+  //     depthCompare: 'equal', // Only draw if the new pixel is "less" (closer) than the old one
+  // };
     /*
       Create Texture Pipeline
     */
@@ -441,7 +440,7 @@ export class Renderer {
       },
       primitive: {
         topology: "line-list", // draw lines
-        cullMode: 'none', // Add this to ensure both sides of the lines are drawn
+        // cullMode: 'none', 
       },
     });
   }
@@ -508,7 +507,7 @@ export class Renderer {
           }
         },
         {
-          binding: 6,// @binding(5) - boxDepthTexture
+          binding: 6,// @binding(6) - boxDepthTexture
           visibility: GPUShaderStage.COMPUTE,
           storageTexture: {
             access: "write-only",
@@ -634,7 +633,7 @@ export class Renderer {
           }
         },
         {
-          binding: 4, // @binding(1) - boxDepthTexture
+          binding: 4, // @binding(4) - boxDepthTexture
           visibility: GPUShaderStage.FRAGMENT,
           texture: {
             // Change from the default 'float' to 'unfilterable-float'
@@ -784,6 +783,9 @@ export class Renderer {
       sphereDataAsF32[offset + 7] = this.scene.spheres[i].material;
 
       sphereDataAsF32[offset + 8] = this.scene.spheres[i].fuzziness;
+      sphereDataAsF32[offset + 9] = this.scene.spheres[i].reflectivity;
+      sphereDataAsF32[offset + 10] = this.scene.spheres[i].refractivity;
+
 
     }
     // console.log("sphereDataAsF32", sphereDataAsF32)
@@ -868,10 +870,6 @@ export class Renderer {
   private writeBuffers(isInit: boolean) {
     
     this.writeCameraBuffer(isInit);
-
-    
-    
-
     this.writeRenderDataBuffer();
     // these functions may resize the spheresBuffer and/or BVHNodeBuffer
     // that would require reconfiguring the bind group
@@ -890,13 +888,11 @@ export class Renderer {
   private configureBuffers() {
     // Color Buffer: written to by the compute shader
     // read from by the vertex + fragment shaders.
-    // cooresponds to @binding(0) in compute Shader,
-    // cooresponds to @binding(1) in frament shader
     this.colorBuffer = this.device.createTexture({
       label: 'colorBuffer',
       size: {
-        width: Renderer.canvas.width, // 800 px
-        height: Renderer.canvas.height, // 600 px
+        width: Renderer.canvas.width,
+        height: Renderer.canvas.height, 
       },
       format: "rgba8unorm",
       usage:
@@ -908,14 +904,12 @@ export class Renderer {
     this.boxDepthTexture = this.device.createTexture({
       label: 'boxDepthTexture',
       size: {
-        width: Renderer.canvas.width, // 800 px
-        height: Renderer.canvas.height, // 600 px
+        width: Renderer.canvas.width,
+        height: Renderer.canvas.height, 
       },
       format: 'r32float',
       usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.TEXTURE_BINDING,
     });
-
-    // this.colorBufferView = this.colorBuffer.createView();
 
     // Sampler: used by the fragment shader to sample texture
     // cooresponds to @binding(0) in fragment Shader

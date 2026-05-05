@@ -73,14 +73,14 @@ export class aabb {
   }
   surfaceArea(): number {
     // Calculate the length of each side
-    const w = this.x.max - this.x.min;
-    const h = this.y.max - this.y.min;
-    const d = this.z.max - this.z.min;
+    const width = this.x.size();
+    const height = this.y.size();
+    const depth = this.z.size();
 
-    // Ensure we don't return negative area if the box is uninitialized
-    if (w < 0 || h < 0 || d < 0) return 0;
+    // return 0 if any of the sizes are negative
+    if (width < 0 || height < 0 || depth < 0) return 0;
 
-    return 2 * (w * h + h * d + d * w);
+    return 2 * (width * height + height * depth + depth * width);
 }
 
 }

@@ -2,12 +2,12 @@ import { aabb } from "./BVH/aabb";
 import { vec3 } from 'gl-matrix';
 import { debug } from "./main";
 const debug1 = false;
-// const materialType = {
+// materialTypes:
 //   matte: 0,
 //   metallic: 1,
-//   dielectric: 2,
+//   refractive: 2,    
 //   emissive: 3
-// }
+
 
 export class Sphere {
   // Vec3 of world coordinates of sphere center
@@ -17,6 +17,9 @@ export class Sphere {
   bbox!: aabb;
   material: number;
   fuzziness: number;
+  reflectivity: number;
+  refractivity: number; // aka, index of refraction
+
   initialProperties: {
     position: Float32Array;
     radius: number;
@@ -24,15 +27,19 @@ export class Sphere {
     bbox: aabb;
     material: number;
     fuzziness: number;
+    reflectivity: number;
+    refractivity: number;
   };
 
-  constructor(position: number[], radius: number, color: number[], material: number, fuzziness: number) {
+  constructor(position: number[], radius: number, color: number[], material: number,
+     fuzziness: number, reflectivity: number, refractivity: number) {
     this.position = new Float32Array(position);
     this.radius = radius;
     this.color = new Float32Array(color);
     this.material = material;
     this.fuzziness = fuzziness;
-   
+    this.reflectivity = reflectivity
+    this.refractivity =refractivity;
     this.updatebbox();
     this.initialProperties = {
       position: new Float32Array(this.position),
@@ -40,7 +47,9 @@ export class Sphere {
       color: new Float32Array(this.color),
       bbox: this.bbox,
       material: this.material,
-      fuzziness: this.fuzziness
+      fuzziness: this.fuzziness,
+      reflectivity: this.reflectivity,
+      refractivity: this.refractivity
     }
   }
 

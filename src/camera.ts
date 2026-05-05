@@ -110,30 +110,19 @@ export class Camera {
     this.right = new Float32Array([0.0, 0.0, 0.0]);
     vec3.cross(this.right, [0.0, 1.0, 0.0], this.forwards);
     vec3.normalize(this.right, this.right); 
-    // vec3.scale(this.right, this.right, fov_factor);
 
     this.up = new Float32Array([0.0, 0.0, 0.0]);
     vec3.cross(this.up, this.forwards, this.right);
     vec3.normalize(this.up, this.up);
-    // vec3.scale(this.up, this.up, fov_factor);
+
     const aspect = Renderer.canvas.clientWidth / Renderer.canvas.clientHeight;
     const zNear = 0.1;
     const zFar = 3000.0;
     const f = 1.0 / Math.tan(fov_radians / 2);
     const rangeInv = 1.0 / (zFar - zNear);    
    
-    // this.projectionMatrix = new Float32Array([
-    //     f / aspect, 0,      0,                           0, // column 0
-    //     0,          f,      0,                           0, // colun 1
-    //     0,          0,  zFar * rangeInv,           1,      // column 2
-    //     0,          0, -(zFar * zNear)*rangeInv, 0        // column 3
-    //   ]);
-      // this.projectionMatrix = new Float32Array([ // website vewrsion
-      //     f / aspect, 0,      0,                           0, // column 0
-      //     0,          f,      0,                           0, // colun 1
-      //     0,          0,  zFar * rangeInv,           -1,      // column 2
-      //     0,          0, (zFar * zNear)*rangeInv, 0        // column 3
-      //   ]);
+
+    // in wgsl, rows are columns for matricies (inverted)
     this.projectionMatrix = new Float32Array([
       f / aspect, 0,      0,                           0, // column 0
       0,          f,      0,                           0, // colun 1
@@ -178,7 +167,7 @@ export class Camera {
       vec3.sub(moveDir, moveDir, this.forwards);
     }
   
-    // Left / Right 
+    // Right / Left 
     if (this.keysPressed.d) {
       vec3.add(moveDir, moveDir, this.right);
     }
@@ -200,6 +189,7 @@ export class Camera {
     vec3.scale(moveDir, moveDir, this.speed * Renderer.deltaT);
     vec3.add(this.position, this.position, moveDir);
 
+    
     if (this.keysPressed.w == false &&
       this.keysPressed.s == false &&
       this.keysPressed.d == false &&
@@ -215,10 +205,8 @@ export class Camera {
   }
 
   private registerInputListeners() {
-    // console.log(canvas)
 
     window.addEventListener('keydown', (event) => {
-      // console.log(event.key)
       if (!this.isPointerLocked) return;
       const key = event.key;
       if (key == "w") {
@@ -248,7 +236,6 @@ export class Camera {
     });
   
     window.addEventListener('keyup', (event) => {
-      // console.log(event.key)
       if (!this.isPointerLocked) return;
       const key = event.key;
       if (key == "w") {

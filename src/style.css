@@ -64,7 +64,8 @@ body {
 #container {
   display:flex;
   justify-content: center;
-  gap: 0.5rem;
+  align-items: flex-start; 
+  gap: 0.7rem;
   margin-top: 0.8rem;
 }
 #canvas-container {
@@ -121,14 +122,6 @@ details {
   font-weight: bold;
 }
 
-/* li {
-  display: flex;
-  justify-content: center;
-}
-li > * {
-  flex-shrink: 0;
-  overflow: hidden;
-} */
 #object-controls {
   min-width: 19rem;
 }

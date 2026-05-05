@@ -1,15 +1,15 @@
-struct Sphere { // 16 bytes
+struct Sphere { // 48 bytes
   position: vec3<f32>,
   radius: f32,
   color: vec3<f32>,
   material: f32,
   fuzz: f32,
-  padding0: f32,
+  reflectivity: f32,
+  refractivity: f32,
   padding1: f32,
-  padding2: f32,
 } // byte aligned to 16 bytes
 
-struct SceneData { // 16 + sizeof(spheres)bytes
+struct SceneData { // 16 + sizeof(spheres) bytes
   skyColor: vec3<f32>,
   sphereCount: u32,
   spheres: array<Sphere>,
@@ -20,7 +20,7 @@ struct Ray {
   origin: vec3<f32>,
 }
 
-struct CameraData {
+struct CameraData {// 64 + 64 + 64  = 128 bytes
   cameraPos: vec3<f32>,
   padding0: f32,
   cameraForwards: vec3<f32>,
@@ -29,23 +29,27 @@ struct CameraData {
   padding2: f32,
   cameraUp: vec3<f32>,
   padding3: f32,
-  viewProjectionMatrix: mat4x4<f32>,
-  inverseViewProjectionMatrix: mat4x4<f32>
 
-} // 64 + 64 + 64  = 128 bytes
+  viewProjectionMatrix: mat4x4<f32>,
+
+  inverseViewProjectionMatrix: mat4x4<f32>
+} 
 struct HitRecord {
   color: vec3<f32>,
   hitAnything: bool,
   position: vec3<f32>,
   t: f32,
+
   normal: vec3<f32>,
   material: f32,
-  fuzz: f32
+  fuzz: f32,
+  reflectivity: f32,
+
+  refractivity: f32
 }
 
 
-
-struct BVHNode {
+struct BVHNode { //12 * 4 = 48 bytes.
   min: vec3<f32>,
   leftChild: f32,
 
@@ -57,8 +61,9 @@ struct BVHNode {
   // numChildren f32,
   objectIndex: f32, 
   depth: f32,
-}  // 12 * 4 = 48 bytes. aligned to 16 bytes = sizeof(vec3f)
-struct BVH {
+}  //  aligned to 16 bytes = sizeof(vec3f)
+
+struct BVH { // 16 + sizeof(nodes) bytes
   numNodes: f32,
   maxDepth: f32,
   // 8 bytes padding
@@ -67,7 +72,7 @@ struct BVH {
   nodes: array<BVHNode>, // aligned to 16 bytes
 }
 
-struct RenderData { // 32
+struct RenderData { // 4*11 = 44 bytes
   image_width: u32,
   image_height: u32,
   frameCount: u32,
@@ -166,13 +171,28 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
   }
   // textureStore(color_buffer, canvas_pos, vec4<f32>(outputColor, 1.0));
   // textureStore(depthBuffer, canvas_pos, vec4<f32>(10000, 0.0, 0.0, 0.0));
+
+  /* 
+    Stores the outputColor from the rayTracer in the color buffer that will be rendered to the screen in
+    the fragment shader fs (in textureShader.wgsl).
+  */
   textureStore(color_buffer, canvas_pos, vec4<f32>(outputColor, 1.0));
+
+   /* 
+    Stores the depth value the ray tracer calculates for the first ray (before scattering),
+    which is represented by resultHitRecord.t, in the depth buffer. This is needed for using a depth
+    test on the BVH boxes so that the part of the wireframe box behind a sphere is not visible 
+    (only if depthTestBVH == 1). 
+    If the ray misses a sphere, the depth value of 10000 is used which should be farther than the far plane
+  */
+  // textureStore(depthBuffer, canvas_pos, vec4<f32>(resultHitRecord.t, 0.0, 0.0, 0.0));
   if (resultHitRecord.hitAnything == true) {
     textureStore(depthBuffer, canvas_pos, vec4<f32>(resultHitRecord.t, 0.0, 0.0, 0.0));
   } else {
     textureStore(depthBuffer, canvas_pos, vec4<f32>(10000, 0.0, 0.0, 0.0));
 
   }
+  
 }
 
 fn rayColor(ray: Ray, seed: ptr<function, u32>) -> HitRecord {
@@ -208,6 +228,9 @@ fn rayColor(ray: Ray, seed: ptr<function, u32>) -> HitRecord {
         nearestHit = hitRecord.t;
       }
     }
+     // interpolated between white and skycolor based on currentRay.direction.y
+    let t = 0.5 * (currentRay.direction.y + 1.0);
+    let skyColor = (1.0 - t) * vec3(1.0, 1.0, 1.0) + t * scene.skyColor;
     if (hitRecord.hitAnything == true) {
       if (!firstHitCaptured) { 
         // used to record the t value for the hit on the actual sphere
@@ -216,7 +239,7 @@ fn rayColor(ray: Ray, seed: ptr<function, u32>) -> HitRecord {
         firstHitCaptured = true;
       }
       var scatterDirection: vec3<f32>;
-
+     
       if (hitRecord.material == 0) {  // matte
         
         if (renderData.diffuseType == 0) {// simple diffuse - matte
@@ -227,21 +250,65 @@ fn rayColor(ray: Ray, seed: ptr<function, u32>) -> HitRecord {
         throughput *= hitRecord.color * 0.5;
 
       } else if (hitRecord.material == 1) { // metallic
-        // scatterDirection = currentRay.direction 
+        // let reflectDir = currentRay.direction 
         //   - dot(currentRay.direction, hitRecord.normal) * hitRecord.normal;
-        scatterDirection = reflect(normalize(currentRay.direction), normalize(hitRecord.normal))
-          + hitRecord.fuzz * random_on_hemisphere(hitRecord.normal, seed);
-        let t = 0.5 * (currentRay.direction.y + 1.0); // ranges between 0 and 1.0
-        // interpolated between white and skycolor based on currentRay.direction.y
-        let skyColor = (1.0 - t) * vec3(1.0, 1.0, 1.0) + t * scene.skyColor;
-        throughput *= ((1.0 - t) * vec3(1.0, 1.0, 1.0) + t * skyColor);
+        let diffuseDir = normalize(hitRecord.normal + random_unit_vector(seed));
+        let reflectDir = normalize(reflect(currentRay.direction, hitRecord.normal) 
+        + hitRecord.fuzz * random_on_hemisphere(hitRecord.normal, seed));
+        // scatterDirection = reflect(normalize(currentRay.direction), normalize(hitRecord.normal))
+        //   + hitRecord.fuzz * random_on_hemisphere(hitRecord.normal, seed);
+       scatterDirection = mix(diffuseDir, reflectDir, hitRecord.reflectivity);
+        // throughput *=  ((1.0 - t) * vec3(1.0, 1.0, 1.0) + t * skyColor);
+        let color = ((1.0 - t) * vec3(1.0, 1.0, 1.0) + t * skyColor);
+        // throughput *= color * mix(0.5, 1.0, hitRecord.reflectivity);
+        throughput *= color * mix(0.0, 1.0, hitRecord.reflectivity)
+        + hitRecord.color * mix(1.0, 0.0, hitRecord.reflectivity);
+
+      } else if (hitRecord.material == 2) { // refractive material
+        /* 
+          if dot(currentRay.direction, hitRecord.normal) < 0.0
+          then the ray is opposite to the normal, which means it is
+          going into the sphere, so the ray is outward.
+          Otherwise the ray is inside the sphere
+        */
+        let isRayInAir: bool = select(
+          true, 
+          false,  
+          dot(currentRay.direction, hitRecord.normal) < 0.0
+        );
+
+        let airReflectivity = 1.0; // Note: the index of refraction of air is 1.0
+
+        /*
+          Assuming theta is the angle between the normal and incoming light, and theta' is
+          angle between -normal and outgoing light across boundary:
+          If the ray is in air, the fraction of the index of refaction of light
+          going from the air to the sphere is airReflectivity / hitRecord.refractivity.
+          
+          So snell's law is 
+          sin(theta') = (airReflectivity / hitRecord.refractivity) * sin(theta)
+        
+          Otherwise, the roles of theta and theta' is reversed (same for fraction)
+          Snell's law is 
+          sin(theta) = (hitRecord.refractivity / airReflectivity) * sin(theta')
+        */
+        let ri: f32 = select(
+          airReflectivity / hitRecord.refractivity, 
+          hitRecord.refractivity / airReflectivity,  
+          isRayInAir
+        );
+        let refractDirection = refract(
+          normalize(currentRay.direction),
+          hitRecord.normal,
+          ri
+        );
+        scatterDirection = refractDirection;
+        throughput *= 0.5*hitRecord.color;
       }
       currentRay.origin = hitRecord.position; // + (hitRecord.normal * 0.001);
       currentRay.direction = normalize(scatterDirection);
-      
     } else {
-      let t = 0.5 * (currentRay.direction.y + 1.0);
-      let skyColor = (1.0 - t) * vec3(1.0, 1.0, 1.0) + t * scene.skyColor;
+      
       resultingColor = throughput * skyColor;
       break;
     }
@@ -268,17 +335,20 @@ fn hit(ray: Ray, sphere: Sphere, tMin: f32, tMax: f32,
     let t: f32 = (-b - sqrt(discriminant)) / (2 * a);
 
     if (t > tMin && t < tMax) {
-    (*outHitRecord).t = t;
-    (*outHitRecord).position = ray.origin + t * ray.direction;
-    (*outHitRecord).normal = normalize(((*outHitRecord).position - sphere.position));
-    (*outHitRecord).color = sphere.color;
-    (*outHitRecord).material = sphere.material;
-    (*outHitRecord).fuzz = sphere.fuzz;
+      (*outHitRecord).t = t;
+      (*outHitRecord).position = ray.origin + t * ray.direction;
+      (*outHitRecord).normal = normalize(((*outHitRecord).position - sphere.position));
+      (*outHitRecord).color = sphere.color;
+      (*outHitRecord).material = sphere.material;
+      (*outHitRecord).fuzz = sphere.fuzz;
+      (*outHitRecord).reflectivity = sphere.reflectivity;
+      (*outHitRecord).refractivity = sphere.refractivity;
 
-    (*outHitRecord).hitAnything = true;
-    return true;
+      (*outHitRecord).hitAnything = true;
+      return true;
     }
   }
+  // (*outHitRecord).t = 3.0e+38; // close to infinity on miss
   return false;
 }
 fn hitBVHStackless(ray: Ray, outHitRecord: ptr<function, HitRecord>) -> bool {
@@ -292,7 +362,7 @@ fn hitBVHStackless(ray: Ray, outHitRecord: ptr<function, HitRecord>) -> bool {
   var leafHitRecord: HitRecord;
   var hitAnything = false;
 
-  // Initialize outHitRecord to clear previous frame data
+  // clear previous  data
   (*outHitRecord).hitAnything = false;
 
   while (i < nodeCount) {
@@ -314,21 +384,21 @@ fn hitBVHStackless(ray: Ray, outHitRecord: ptr<function, HitRecord>) -> bool {
           closestT = leafHitRecord.t;
           hitAnything = true;
         }
-        // Always move to next node index after leaf
+        
         i++; 
       } else {
         // Internal Node: Step into the next sequential node (leftChild)
         i++; 
       }
     } else {
-      // If we miss the AABB, we MUST jump to the skipLink.
+      // jump to the skipLink if ray misses
       i = u32(node.skipLink);
       
-      // Safety: If skipLink is broken (0), prevent infinite loop
+      // skipLink is broken (0), prevent infinite loop
       if (i == 0u && nodeCount > 0u) { break; }
     }
 
-    // Emergency exit for debugging (adjust based on your tree depth)
+    // prevent infinite loop
     if (i > 1000u) { break; }
   }
   
@@ -339,9 +409,9 @@ fn hitBVH(ray: Ray, outHitRecord: ptr<function, HitRecord>) -> bool { // 0.001, 
   (*outHitRecord).hitAnything = false;
   // t represents distance to nearest object hit so far. initialized to +infinity
   var closestT: f32 = 3.0e+38; 
-  var stack: array<u32, 32>; // Max depth of 32 is enough for 2^32 scene
+  var stack: array<u32, 32>; // Max depth of 32 is enough for 2^32 scene objects
   var stackPtr: i32 = 0;
-  stack[0] = 0; // Start at root node
+  stack[0] = 0; // Start at root 
   let invD = 1.0 / ray.direction; // only 1 division calculation
 
   var bvhHitRecord: HitRecord;
@@ -427,21 +497,6 @@ fn hitAABB(ray: Ray, invD: vec3<f32>, node_min: vec3<f32>, node_max: vec3<f32>,
     return false;
 }
 
-
-// fn hitAABB_fast(ray: Ray, invD: vec3<f32>, node_min: vec3<f32>, node_max: vec3<f32>) -> f32 {
-//     let t0 = (node_min - ray.origin) * invD;
-//     let t1 = (node_max - ray.origin) * invD;
-//     let t_min_v = min(t0, t1);
-//     let t_max_v = max(t0, t1);
-    
-//     let t_near = max(max(t_min_v.x, t_min_v.y), t_min_v.z);
-//     let t_far  = min(min(t_max_v.x, t_max_v.y), t_max_v.z);
-
-//     if (t_far >= t_near && t_far > 0.0) {
-//         return t_near;
-//     }
-//     return 1e30; // Return infinity for a miss
-// }
 
 fn pcg_hash(input: u32) -> u32 {
     var state = input * 747796405u + 2891336453u;
