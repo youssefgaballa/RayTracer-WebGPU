@@ -137,7 +137,8 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
   ndc.y = -ndc.y; // Range(ndc.y) = [1.0, -1.0] <-- flipped because texture coords are automatically mirrored
 
   /*
-    box shader converts from world coordinates to ndc in vertex shader
+    Box shader converts camera position from world coordinates
+    to ndc in vertex shader.
     Need to convert from ndc to world coordinates so that it is synchronized with the
     box shader
   */

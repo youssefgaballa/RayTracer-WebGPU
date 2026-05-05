@@ -84,7 +84,6 @@ export class BVHNodeObject {
  
       if (objectSpan === 1) {
         this.sphereIndices = [objectIndices[start]];
-        // For backward compatibility with your flatten logic:
         this.sphereIndex = objectIndices[start]; 
         return;
       }
@@ -93,14 +92,17 @@ export class BVHNodeObject {
       let bestSplitIndex = -1;
       let minCost = Number.POSITIVE_INFINITY;
   
-      // Evaluate all 3 axes to find the cheapest split
+      // Loop through all 3 axes to find the cheapest split
       for (let axis = 0; axis < 3; axis++) {
-        // Sort a TEMPORARY segment so we don't scramble the main buffer yet
+        
+        /*
+        Sorts the objectIndeces in order of their bounding box's center
+        */
         const testSegment = objectIndices.slice(start, end).sort((a, b) => {
           return objects[a].bbox.center()[axis] - objects[b].bbox.center()[axis];
         });
   
-        // Test split positions to find the minimum Surface Area Heuristic cost
+        // test to find the minimum Surface Area Heuristic cost
         for (let i = 1; i < objectSpan; i++) {
           const leftBox = aabb.noArg();
           const rightBox = aabb.noArg();

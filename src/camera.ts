@@ -103,6 +103,7 @@ export class Camera {
     yaw: number;
     speed: number;
     sensitivity: number;
+    fov: number;
     keysPressed: keysPressedType;
     mouseActive: boolean;
   }
@@ -121,6 +122,7 @@ export class Camera {
       yaw: this.yaw,
       speed: this.speeds.normal,
       sensitivity: this.sensitivity,
+      fov: this.fov,
       keysPressed: {
         w: false,
         a: false,
@@ -247,6 +249,7 @@ export class Camera {
     window.addEventListener('keydown', (event) => {
       if (!this.isPointerLocked) return;
       const key = event.key;
+      event.preventDefault();
       if (key == "w") {
         this.keysPressed.w = true;
         this.updatedCamera = true;
@@ -278,6 +281,7 @@ export class Camera {
   
     window.addEventListener('keyup', (event) => {
       if (!this.isPointerLocked) return;
+      event.preventDefault();
       const key = event.key;
       if (key == "w") {
         this.keysPressed.w = false;
@@ -377,6 +381,11 @@ export class Camera {
     this.pitch = this.initialTransform.pitch;
     this.speed = this.initialTransform.speed;
     this.sensitivity = this.initialTransform.sensitivity;
+    this.sensSlider.value = this.sensitivity.toString();
+    this.sensSpan.textContent = this.sensitivity.toString();
+    this.fov = this.initialTransform.fov;
+    this.fovSlider.value = this.fov.toString();
+    this.fovSpan.textContent = this.fov.toString();
     this.keysPressed.w = this.initialTransform.keysPressed.w;
     this.keysPressed.a = this.initialTransform.keysPressed.a;
     this.keysPressed.s = this.initialTransform.keysPressed.s;
