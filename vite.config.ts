@@ -19,8 +19,18 @@ const getAllFiles = (dir: string) => {
   return files;
 };
 export default defineConfig({
+  assetsInclude: ['**/*.wgsl'],
   build: {
-    minify: false,
+    minify: 'terser', // Switch from esbuild to terser
+    terserOptions: {
+      compress: false, // Don't compress code
+      mangle: false,   // Don't rename variables
+      format: {
+        comments: 'all', // PRESERVE ALL COMMENTS (inline and block)
+        beautify: true,  // Keeps code readable
+      },
+    },
+    
     lib: {
       entry: getAllFiles(resolve(__dirname, 'src')),
       formats: ['es'],
@@ -30,13 +40,8 @@ export default defineConfig({
         preserveModules: true,
         preserveModulesRoot: 'src',
         entryFileNames: '[name].js',
+        assetFileNames: '[name][ext]',
       },
     },
-  },
-  esbuild: {
-    legalComments: 'inline', // Keeps comments like /* @preserve */
-    banner: ' ',             // Prevents some default header removals
-    // To keep ALL comments (including regular ones), use:
-    ignoreAnnotations: true,
-  },
+  }
 });
