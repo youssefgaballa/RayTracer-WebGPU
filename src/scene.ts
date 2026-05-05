@@ -179,7 +179,8 @@ export class Scene {
         this.getRandomInt(0,2), // material
         this.getRandomFloat(0.0, 1.0), //fuzziness
         this.getRandomFloat(0.0, 1.0), //reflectivity
-       this.getRandomFloat(0.1, 3.0) // index of refraction
+       this.getRandomFloat(0.1, 3.0), // index of refraction
+       this.getRandomFloat(0.0, 10.0)
       ), i++)
 
     }
@@ -203,44 +204,57 @@ export class Scene {
       [5.0, 3.0, 0.0], 3, [1.0, 1.0, 0.0],//2: yellow
       1 ,// metallic
        0.0,
+       1.0,// index of refraction
        1.0,
-       1.0 // index of refraction
+       0.0
     ), i++) 
     .addSphere(new Sphere(
       [-5.0, 1.9, -12], 1.0, [1.0, 0.2, 0.0],//3: orange
       1, // metallic
       0.2,
       0.5,
-      1.0 // index of refraction
+      1.0,
+      0.0
     ), i++)
     .addSphere(new Sphere(
-      [-2.0, 4.3, 0.0], 3, [1.0, 1.0, 0.0],// 7: yellow
+      [-2.0, 4.3, 0.0], 3, [1.0, 1.0, 0.0],// 4: yellow
       2, // refractive
       0.0,
       1.0,
-      1.0 // index of refraction  
+      1.0,
+      0.0
     ), i++)
-    
     .addSphere(new Sphere(
-      [0.0, 6.3, -11.0], radius, [0.0, 1.0, 0.0],//4:  green
+      [18.0, 3.0, -11.0], 3, [0.0, 1.0, 0.0],//5:  green
+      3, // Emissive
+      1.0,
+      0.0,
+      1.0,
+      1.0
+    ), i++)
+    .addSphere(new Sphere(
+      [0.0, 6.3, -11.0], radius, [0.0, 1.0, 0.0],//6:  green
       0, // refractive
       1.0,
       0.0,
-      1.0  // index of refraction
+      1.0,
+      0.0
     ), i++)
     .addSphere(new Sphere(
-      [12.0, 3.0, -10.0], 3.0, [0.0, 0.0, 1.0],// 5: blue
+      [12.0, 3.0, -10.0], 3.0, [0.0, 0.0, 1.0],// 7: blue
       0, // matte
       1.0,
       0.0,
-      1.0 // index of refraction
+      1.0,
+      0.0
     ), i++)
     .addSphere(new Sphere(
-      [-2.0, 4.3, -10.0], radius, [1.0, 0.0, 1.0],// 6: magenta
+      [-2.0, 4.3, -10.0], radius, [1.0, 0.0, 1.0],// 8: magenta
       0, // matte
       1.0,
       0.0,
-      1.0 // index of refraction 
+      1.0 ,
+      0.0
     ), i++)
 ;
     this.createUI();
@@ -463,14 +477,14 @@ export class Scene {
         createControl("Fuzziness", 0.0, 1.0, 0.01);
         createControl("Reflectance", 0.0, 1.0, 0.01);
         createControl("Refractance", 0.1, 3.0, 0.01);
+        createControl("EmissionStrength", 0.0, 10.0, 0.01);
 
         createControl("Reset");
       }
     
 
       const createControl = (label: 'X' | 'Y' | 'Z' | 'Radius' | 'Color' | 'Material' 
-        | 'Fuzziness' | 'Reflectance'
-        | 'Refractance'| 'Reset', 
+        | 'Fuzziness' | 'Reflectance'| 'Refractance'| 'EmissionStrength' | 'Reset', 
         min?: number, max?: number, step?: number) => {
         const li = document.createElement("li");
         li.textContent = `${label}: `;
@@ -616,6 +630,27 @@ export class Scene {
           });
           li.appendChild(refractivitySlider);
           li.appendChild(refractivityLabel);
+        } else if (label === "EmissionStrength") {
+          const emissionSlider = document.createElement("input");
+          emissionSlider.type = "range";
+          if (min == undefined || max == undefined || step == undefined) return;
+          emissionSlider.min = min.toString();
+          emissionSlider.max = max.toString();
+          emissionSlider.step = step.toString();
+          emissionSlider.value = obj.emissionStrength.toString();
+
+          const emissionLabel = document.createElement("span");
+          emissionLabel.textContent = emissionSlider.value;
+
+          emissionSlider.addEventListener("input", (e) => {
+            const val = parseFloat((e.target as HTMLInputElement).value);
+            emissionLabel.textContent = val.toString();
+            obj.emissionStrength = val;
+            Renderer.frameCount = 1;
+            Scene.updatedScene = true;
+          });
+          li.appendChild(emissionSlider);
+          li.appendChild(emissionLabel);
         
         } else { // X, Y, Z
           // Cooresponds to one of X, Y, Z

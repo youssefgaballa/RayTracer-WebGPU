@@ -791,6 +791,7 @@ export class Renderer {
       sphereDataAsF32[offset + 8] = sphere.fuzziness;
       sphereDataAsF32[offset + 9] = sphere.reflectivity;
       sphereDataAsF32[offset + 10] = sphere.refractivity;
+      sphereDataAsF32[offset + 11] = sphere.emissionStrength;
 
 
     }

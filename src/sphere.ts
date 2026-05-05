@@ -19,6 +19,8 @@ export class Sphere {
   fuzziness: number;
   reflectivity: number;
   refractivity: number; // aka, index of refraction
+  emissionStrength: number;
+
 
   initialProperties: {
     position: Float32Array;
@@ -29,17 +31,21 @@ export class Sphere {
     fuzziness: number;
     reflectivity: number;
     refractivity: number;
+    emissionStrength: number;
+
   };
 
   constructor(position: number[], radius: number, color: number[], material: number,
-     fuzziness: number, reflectivity: number, refractivity: number) {
+     fuzziness: number, reflectivity: number, refractivity: number,  emissionStrength: number
+    ) {
     this.position = new Float32Array(position);
     this.radius = radius;
     this.color = new Float32Array(color);
     this.material = material;
     this.fuzziness = fuzziness;
     this.reflectivity = reflectivity
-    this.refractivity =refractivity;
+    this.refractivity = refractivity;
+    this.emissionStrength = emissionStrength;
     this.updatebbox();
     this.initialProperties = {
       position: new Float32Array(this.position),
@@ -49,7 +55,8 @@ export class Sphere {
       material: this.material,
       fuzziness: this.fuzziness,
       reflectivity: this.reflectivity,
-      refractivity: this.refractivity
+      refractivity: this.refractivity,
+      emissionStrength: this.emissionStrength
     }
   }
 

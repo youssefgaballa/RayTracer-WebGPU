@@ -6,7 +6,7 @@ struct Sphere { // 48 bytes
   fuzz: f32,
   reflectivity: f32,
   refractivity: f32,
-  padding1: f32,
+  emissionStrength: f32,
 } // byte aligned to 16 bytes
 
 struct Triangle { // 16*4 = 64 bytes
@@ -70,7 +70,9 @@ struct HitRecord {
   fuzz: f32,
   reflectivity: f32,
 
-  refractivity: f32
+  refractivity: f32,
+  emissionStrength: f32,
+
 }
 
 
@@ -234,6 +236,8 @@ fn rayColor(ray: Ray, seed: ptr<function, u32>) -> HitRecord {
   var firstHitCaptured = false;
   for (var depth: u32 = 0; depth < renderData.numRayBounces; depth++) {
     var hitRecord: HitRecord;
+    var lastHitEmission: bool;
+    var lastHitEmissionColor: vec3<f32>;    
     var nearestHit = 10000.0;
 
     if (renderData.useBVH == 0){ // looping through each object
@@ -273,6 +277,7 @@ fn rayColor(ray: Ray, seed: ptr<function, u32>) -> HitRecord {
           scatterDirection = hitRecord.normal + random_unit_vector(seed);
         }
         throughput *= hitRecord.color * 0.5;
+        lastHitEmission= false;
 
       } else if (hitRecord.material == 1) { // metallic
         // reflectDir: currentRay.direction  - dot(currentRay.direction, hitRecord.normal) * hitRecord.normal;
@@ -287,6 +292,7 @@ fn rayColor(ray: Ray, seed: ptr<function, u32>) -> HitRecord {
         // throughput *= color * mix(0.5, 1.0, hitRecord.reflectivity);
         throughput *= skyColor * mix(0.0, 1.0, hitRecord.reflectivity)
         + hitRecord.color * mix(1.0, 0.0, hitRecord.reflectivity);
+        lastHitEmission= false;
 
       } else if (hitRecord.material == 2) { // refractive material
         /* 
@@ -357,12 +363,26 @@ fn rayColor(ray: Ray, seed: ptr<function, u32>) -> HitRecord {
           throughput *= vec3f(1.0,1.0,1.0);
 
         }
+        lastHitEmission= false;
+
+      } else if (hitRecord.material == 3) { // Emissive
+        lastHitEmissionColor = hitRecord.color;
+        lastHitEmission= true;
+        let diffuseDir = normalize(hitRecord.normal + random_unit_vector(seed));
+        let reflectDir = normalize(reflect(currentRay.direction, hitRecord.normal) 
+          + hitRecord.fuzz * random_on_hemisphere(hitRecord.normal, seed));
         
+        scatterDirection = mix(diffuseDir, reflectDir, hitRecord.reflectivity);
+        throughput *= skyColor * mix(0.0, 1.0, hitRecord.reflectivity)
+           + hitRecord.color * mix(1.0, 0.0, hitRecord.reflectivity);
       }
       currentRay.origin = hitRecord.position; // + (hitRecord.normal * 0.001);
       currentRay.direction = normalize(scatterDirection);
     } else {
-      
+      if (lastHitEmission){
+        resultingColor = lastHitEmissionColor;
+        lastHitEmission= false;
+      }
       resultingColor = throughput * skyColor;
       break;
     }
@@ -403,6 +423,7 @@ fn hit(ray: Ray, sphere: Sphere, tMin: f32, tMax: f32,
       (*outHitRecord).fuzz = sphere.fuzz;
       (*outHitRecord).reflectivity = sphere.reflectivity;
       (*outHitRecord).refractivity = sphere.refractivity;
+      (*outHitRecord).emissionStrength = sphere.emissionStrength;
 
       (*outHitRecord).hitAnything = true;
       return true;
