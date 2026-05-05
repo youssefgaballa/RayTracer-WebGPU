@@ -54,9 +54,11 @@ export class Renderer {
   private toggleHasGammaCorrectionBtn: HTMLButtonElement 
     = document.getElementById("hasGammaCorrection-btn") as HTMLButtonElement;
 
-  private enableScattering = 1;
-  private toggleEnableScatteringBtn: HTMLButtonElement 
-    = document.getElementById("enableScattering-btn") as HTMLButtonElement;
+  private numRayBounces!: number;
+  private numRayBouncesSlider: HTMLInputElement 
+    = document.getElementById("bounces") as HTMLInputElement;
+    private numRayBouncesSpan: HTMLSpanElement 
+    = document.getElementById("bounces-val") as HTMLSpanElement;
   /*
 
   */
@@ -140,7 +142,7 @@ export class Renderer {
       || this.toggleAccumulateFramesBtn == null
       || this.toggleDiffuseTypeBtn == null
       || this.toggleHasGammaCorrectionBtn == null
-      || this.toggleEnableScatteringBtn == null
+      || this.numRayBouncesSlider == null
       || this.toggleBVHBtn == null
       || this.toggleShowBVHBoxesBtn == null
       || this.toggleHideRootBVHBoxBtn == null
@@ -160,9 +162,18 @@ export class Renderer {
     this.hasGammaCorrection 
     = this.toggleHasGammaCorrectionBtn.classList.contains("active") ? 1 : 0;
 
-    this.enableScattering 
-    = this.toggleEnableScatteringBtn.classList.contains("active") ? 1 : 0;
+    this.numRayBounces = parseInt(this.numRayBouncesSlider.value);
+    this.numRayBouncesSpan.textContent =  this.numRayBounces.toString();
 
+    this.numRayBouncesSlider.addEventListener('input', (event: Event) => {
+      const target = event.target as HTMLInputElement;
+      if (target) {
+        this.numRayBounces = parseInt(target.value);
+        this.numRayBouncesSpan.textContent = target.value;
+        Renderer.frameCount = 1;
+        // console.log(this.numRayBounces);
+      }
+    });
   
     this.showBVHBoxes 
     = this.toggleShowBVHBoxesBtn.classList.contains("active") ? 1 : 0;
@@ -201,13 +212,6 @@ export class Renderer {
       // this.frameCount = 0;
     });
 
-    this.toggleEnableScatteringBtn.addEventListener('click', (event: MouseEvent) => {
-      if (event.detail === 0) return; 
-
-      this.toggleEnableScatteringBtn?.classList.toggle('active');
-      this.enableScattering = this.enableScattering == 0 ? 1: 0;
-      // this.frameCount = 0;
-    });
 
     this.toggleBVHBtn.addEventListener('click', (event: MouseEvent) => {
       if (event.detail === 0) return; 
@@ -680,7 +684,7 @@ export class Renderer {
     this.renderData = new Uint32Array([
       Renderer.canvas.width, Renderer.canvas.height, Renderer.frameCount, this.temporalAccumulation, 
       this.diffuseType, this.hasGammaCorrection, this.showBVHBoxes, 
-      this.hideRootBVHBox, this.depthTestBVH, Renderer.toggleBVH, this.enableScattering,
+      this.hideRootBVHBox, this.depthTestBVH, Renderer.toggleBVH, this.numRayBounces,
       Renderer.isCheckerBoard
     ]);
     this.device.queue.writeBuffer(this.renderDataBuffer, 0, this.renderData);

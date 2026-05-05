@@ -108,7 +108,7 @@ struct RenderData { // 4*11 = 44 bytes
   hideRootBVHBox: u32,
   depthTestBVH: u32,
   useBVH: u32,
-  enableScattering: u32,
+  numRayBounces: u32,
   enableCheckerBoard: u32
 }
 
@@ -228,11 +228,11 @@ fn rayColor(ray: Ray, seed: ptr<function, u32>) -> HitRecord {
   var nearestHit: f32 = 9999;
 
   var currentRay: Ray = ray;
-  let maxDepth: u32 = 30;
+  let maxDepth: u32 = 2;
   var resultHitRecord: HitRecord;
   resultHitRecord.hitAnything = false;
   var firstHitCaptured = false;
-  for (var depth: u32 = 0; depth < maxDepth; depth++) {
+  for (var depth: u32 = 0; depth < renderData.numRayBounces; depth++) {
     var hitRecord: HitRecord;
     var nearestHit = 10000.0;
 

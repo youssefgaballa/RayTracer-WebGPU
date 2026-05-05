@@ -28,7 +28,7 @@ export class Camera {
     Need to make sure we dont go under 0 or over Math.PI or the camera could flip
   */
   pitch: number;
-  pitchInterval: Interval = new Interval(0 + 0.001, 2*Math.PI - 0.001);
+  pitchInterval: Interval = new Interval(0 + 0.001, Math.PI - 0.001);
 
   /*
     Azimuthal Angle (phi): between x-axis and projection of the polar axis on x-z plane 
@@ -47,12 +47,25 @@ export class Camera {
   fovSpan: HTMLButtonElement 
   = document.getElementById("fov-val") as HTMLButtonElement;
 
+  sensitivity!: number;
+  sensSlider: HTMLButtonElement 
+  = document.getElementById("sens") as HTMLButtonElement;
+  sensSpan: HTMLSpanElement 
+  = document.getElementById("sens-val") as HTMLSpanElement;
+
+  resetButton: HTMLButtonElement 
+  = document.getElementById("reset-camera") as HTMLButtonElement;
+
   projectionMatrix!: Float32Array;
   viewMatrix!: Float32Array;
   viewProjectionMatrix!: mat4;
   inverseViewProjectionMatrix!: mat4;
 
-  speed: number = 0.006;
+  speeds = {
+    normal: 0.006,
+    fast: 0.02
+  }
+  speed: number = this.speeds.normal;
   
   keysPressed: keysPressedType =  {
     w: false,
@@ -64,7 +77,6 @@ export class Camera {
     down: false
   };
   mouseActive: boolean = false;
-  sensitivity: number = 0.002;
   /*
     Need hasMoved boolean so that when it is true,
     the accumulation buffer is cleared and the boolean is reset to false.
@@ -85,6 +97,15 @@ export class Camera {
   This boolean enables the mousemove event listeners
   */
   isPointerLocked: boolean = false;
+  initialTransform: {
+    position: Float32Array;
+    pitch: number;
+    yaw: number;
+    speed: number;
+    sensitivity: number;
+    keysPressed: keysPressedType;
+    mouseActive: boolean;
+  }
 
   constructor(position: number[]) {
     this.position = new Float32Array(position);
@@ -94,6 +115,23 @@ export class Camera {
     this.fov = 75;
     this.recalculate_vectors();
     this.registerInputListeners();
+    this.initialTransform = {
+      position: new Float32Array(this.position),
+      pitch: this.pitch,
+      yaw: this.yaw,
+      speed: this.speeds.normal,
+      sensitivity: this.sensitivity,
+      keysPressed: {
+        w: false,
+        a: false,
+        s: false,
+        d: false,
+    
+        up: false,
+        down: false
+      },
+      mouseActive: false,
+    }
   }
 
   recalculate_vectors() {
@@ -227,11 +265,14 @@ export class Camera {
       }  else if (key == "c") {
         this.keysPressed.down = true;
         this.updatedCamera = true;
-      } 
+      } else if (key == "Shift") {
+        this.speed = this.speeds.fast
+      }
       if (event.ctrlKey == true) {
         this.keysPressed.down = true;
         this.updatedCamera = true;
       }   
+      
 
     });
   
@@ -250,6 +291,8 @@ export class Camera {
         this.keysPressed.up = false;
       } else if (key == "c") {
         this.keysPressed.down = false;
+      } else if (key == "Shift") {
+        this.speed = this.speeds.normal
       }
       if (key === "Control") {
         this.keysPressed.down = false;
@@ -315,6 +358,37 @@ export class Camera {
   });
   this.fovSlider.value = this.fov.toString();
   this.fovSpan.textContent = this.fov.toString();
+
+  this.sensSlider.addEventListener('input', (event: Event) => {
+    const target = event.target as HTMLInputElement;
+    if (target) {
+      this.sensitivity = parseFloat(target.value);
+      this.sensSpan.textContent = target.value;
+      this.updatedCamera = true;
+      console.log(this.sensitivity);
+    }
+  });
+  this.sensitivity = parseFloat(this.sensSlider.value);
+  this.sensSpan.textContent = this.sensitivity.toString();
+
+  this.resetButton.addEventListener("click", () => {
+    this.position = this.initialTransform.position;
+    this.yaw = this.initialTransform.yaw;
+    this.pitch = this.initialTransform.pitch;
+    this.speed = this.initialTransform.speed;
+    this.sensitivity = this.initialTransform.sensitivity;
+    this.keysPressed.w = this.initialTransform.keysPressed.w;
+    this.keysPressed.a = this.initialTransform.keysPressed.a;
+    this.keysPressed.s = this.initialTransform.keysPressed.s;
+    this.keysPressed.d = this.initialTransform.keysPressed.d;
+     this.keysPressed.up = this.initialTransform.keysPressed.up;
+     this.keysPressed.down = this.initialTransform.keysPressed.down;
+    this.mouseActive = this.initialTransform.mouseActive;
+
+
+    Renderer.frameCount = 1;
+    this.updatedCamera = true;
+  });
 } 
 
 

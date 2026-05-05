@@ -485,6 +485,8 @@ export class Scene {
             obj.color.set(obj.initialProperties.color); 
             obj.material = obj.initialProperties.material;
             obj.fuzziness = obj.initialProperties.fuzziness;
+            obj.reflectivity = obj.initialProperties.reflectivity;
+            obj.refractivity = obj.initialProperties.refractivity;
 
             // update bbox
             Renderer.frameCount = 1;

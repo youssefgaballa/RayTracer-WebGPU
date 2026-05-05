@@ -1,6 +1,6 @@
 import "./style.css";
 import { Renderer } from "./renderer.ts";
-export const debug = true;
+export const debug = false;
 const canvas = document.getElementById("GLCanvas") as HTMLCanvasElement;
 
 const renderer = new Renderer(canvas);

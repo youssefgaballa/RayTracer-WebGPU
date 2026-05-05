@@ -47,7 +47,8 @@ struct RenderData { // 4*11 = 44 bytes
   hideRootBVHBox: u32,
   depthTestBVH: u32,
   useBVH: u32,
-  enableScattering: u32
+  numRayBounces: u32,
+  enableCheckerBoard: u32
 }
 
 @group(0) @binding(0) var screen_sampler : sampler; // used in textureRenderPipeline
