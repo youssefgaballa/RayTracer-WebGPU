@@ -179,63 +179,7 @@ export class BVHNodeObject {
 
     return false;
   }
-  static flattenStackless(root: BVHNodeObject): BVHNode[] {
-    const flatNodes: BVHNode[] = [];
 
-    // Helper to traverse and assign skip indices
-    function traverse(node: BVHNodeObject) {
-      const currentIndex = flatNodes.length;
-      const isLeaf = !node.leftChild && !node.rightChild;
-
-      // Create the flat node
-      const flatNode = new BVHNode(
-        new Float32Array([node.bbox.x.min, node.bbox.y.min, node.bbox.z.min]),
-        -1, // This will become our 'skipIndex'
-        new Float32Array([node.bbox.x.max, node.bbox.y.max, node.bbox.z.max]),
-        -1, // rightChild (unused in stackless, or used for padding)
-        isLeaf ? node.sphereIndices[0] : -1, // objectIdx
-        node.containsSphereZero ? 1 : 0,    // hasRoot
-        isLeaf ? node.sphereIndices.length : 0, // sphereCount
-        node.recursionDepth
-      );
-      Scene.bvhMaxDepth = Math.max(Scene.bvhMaxDepth,  node.recursionDepth);
-     
-      flatNodes.push(flatNode);
-
-      if (!isLeaf) {
-        // In a depth-first flattening, the left child of an internal node
-        // is always the node pushed immediately after it.
-        flatNode.leftChild = currentIndex + 1;
-
-        // if (node.leftChild) traverse(node.leftChild);
-        // if (node.rightChild) traverse(node.rightChild);
-        if (node.leftChild) {
-          traverse(node.leftChild);
-        }
-
-        // The right child starts exactly where the left subtree ended
-        flatNode.rightChild = flatNodes.length;
-        
-        if (node.rightChild) {
-            traverse(node.rightChild);
-        }
-      } else {
-        // For leaves, leftChild is often used to point back to the 
-        // sphere buffer start index.
-        // flatNode.leftChild = node.sphereIndices[0];
-        flatNode.leftChild = -1;
-        flatNode.rightChild = -1;
-      }
-
-      // The "Miss Link": If a ray misses this node, it should jump past 
-      // this node AND all of its descendants.
-      // That location is the current length of the array after the recursion.
-      flatNode.skipLink = flatNodes.length; 
-    }
-
-    traverse(root);
-    return flatNodes;
-}
 /*
 * Converts the tree structure into a flat array that the GPU can read
 */

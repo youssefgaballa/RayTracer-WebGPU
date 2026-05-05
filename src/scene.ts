@@ -78,6 +78,7 @@ export class Scene {
     this.triangles = [];
     this.objectIndeces = [];
     this.bvhNodes = [];
+    Scene.bvhMaxDepth = 0;
     if (this.scene === 1){
       this.createScene1();
     } else if (this.scene === 2) {
@@ -98,7 +99,7 @@ export class Scene {
         if (target && target.checked) {
           console.log(target.value);
           this.scene = parseInt(target.value);
-          Renderer.frameCount = 0;
+          Scene.updatedScene = true;
           this.buildScene();
         }
       });
@@ -538,7 +539,7 @@ export class Scene {
           li.appendChild(colorPicker);
         } else if (label === "Material") {
           const select = document.createElement("select");
-          const materials = ["Matte", "Metallic", "Reflective", "Emissive"];
+          const materials = ["Matte", "Metallic", "Reflective"];
           materials.forEach((name, value) => {
             const option = document.createElement("option");
             option.value = value.toString();
