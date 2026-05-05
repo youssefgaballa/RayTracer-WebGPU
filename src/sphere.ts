@@ -14,17 +14,40 @@ export class Sphere {
   position: Float32Array
   radius: number
   color: Float32Array
-  bbox: aabb;
+  bbox!: aabb;
   material: number;
+  fuzziness: number;
+  initialProperties: {
+    position: Float32Array;
+    radius: number;
+    color: Float32Array;
+    bbox: aabb;
+    material: number;
+    fuzziness: number;
+  };
 
-  constructor(center: number[], radius: number, color: number[], material: number) {
-    this.position = new Float32Array(center);
+  constructor(position: number[], radius: number, color: number[], material: number, fuzziness: number) {
+    this.position = new Float32Array(position);
     this.radius = radius;
     this.color = new Float32Array(color);
     this.material = material;
+    this.fuzziness = fuzziness;
+   
+    this.updatebbox();
+    this.initialProperties = {
+      position: new Float32Array(this.position),
+      radius: this.radius,
+      color: new Float32Array(this.color),
+      bbox: this.bbox,
+      material: this.material,
+      fuzziness: this.fuzziness
+    }
+  }
+
+  public updatebbox() {
     const a = vec3.create();
     const b = vec3.create();
-    const rvec = new Float32Array([radius, radius, radius])
+    const rvec = new Float32Array([this.radius, this.radius, this.radius])
     vec3.sub(a, this.position as vec3, rvec as vec3);
     vec3.add(b, this.position as vec3, rvec as vec3);
     if (debug && debug1) {

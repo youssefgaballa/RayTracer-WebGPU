@@ -268,30 +268,23 @@ export class Renderer {
     if (this.scene.camera.hasMoved == true) {
       this.scene.camera.update();
       this.writeCameraBuffer(false);
-      Renderer.frameCount = 1;
+
+      if (this.accumulateFrames == 0){
+        Renderer.frameCount = 1;
+      }
     }
     if (Scene.updatedScene ==  true) {
-      this.scene.buildBVH();
+      this.scene.updateScene();
       this.writeSpheresBuffer(false);
       this.writeBVHNodesBuffer();
       this.configureBindGroups();
       Scene.updatedScene = false;
-      Renderer.frameCount = 1;
-      this.scene.debug();
-
+      
+      if (this.accumulateFrames == 0){
+        Renderer.frameCount = 1;
+      }
     }
 
-    if (this.scene.camera.hasMoved == true
-      && this.accumulateFrames == 0
-    ) {
-      Renderer.frameCount = 1;
-  }
-    if (this.scene.camera.hasMoved == true 
-      && this.temporalAccumulation == 1 
-    && this.accumulateFrames == 0) {
-      Renderer.frameCount = 1;
-    }
-    
     
   }
 
@@ -738,12 +731,14 @@ export class Renderer {
 
   private writeSpheresBuffer(isInit: boolean) {
     // Write to Spheres Buffer:
-    const sphereStructSizeBytes = //32
+    const sphereStructSizeBytes = //48
       4 * 3 +  // position 
       4 +      // radius
       4 * 3 +  // color
-      4;       // material
-    const entryLength = 8; 
+      4     + // material
+      4     +  // roughness
+      12;        //padding
+    const entryLength = sphereStructSizeBytes / 4; 
     // const positionOffset = 0;
     // const radiusOffset = 3 * 4; // 12
     // const colorOffset = 4 * 4; // 16
@@ -770,19 +765,30 @@ export class Renderer {
     const sphereDataAsF32: Float32Array = new Float32Array(this.sceneData);
     const sphereDataAsU32: Uint32Array = new Uint32Array(this.sceneData);
     const numSpheres: Uint32Array = new Uint32Array(1);
+    sphereDataAsF32[0] = this.scene.skyColor[0];
+    sphereDataAsF32[1] = this.scene.skyColor[1];
+    sphereDataAsF32[2] = this.scene.skyColor[2];
+
     numSpheres[0] = this.scene.spheres.length;
-    sphereDataAsU32[0] = numSpheres[0];
+    sphereDataAsU32[3] = numSpheres[0];
     for (let i = 0; i < this.scene.spheres.length; i++) {
       const offset = 4 + i * entryLength;
       sphereDataAsF32[offset + 0] = this.scene.spheres[i].position[0];
       sphereDataAsF32[offset + 1] = this.scene.spheres[i].position[1];
       sphereDataAsF32[offset + 2] = this.scene.spheres[i].position[2];
       sphereDataAsF32[offset + 3] = this.scene.spheres[i].radius;
+
       sphereDataAsF32[offset + 4] = this.scene.spheres[i].color[0];
       sphereDataAsF32[offset + 5] = this.scene.spheres[i].color[1];
       sphereDataAsF32[offset + 6] = this.scene.spheres[i].color[2];
       sphereDataAsF32[offset + 7] = this.scene.spheres[i].material;
+
+      sphereDataAsF32[offset + 8] = this.scene.spheres[i].fuzziness;
+
     }
+    // console.log("sphereDataAsF32", sphereDataAsF32)
+    // console.log("this.scene.skyColor", this.scene.skyColor)
+
     this.device.queue.writeBuffer(this.spheresBuffer, 0,
       this.sceneData,
       0,
@@ -816,9 +822,7 @@ export class Renderer {
     this.bvhNodeData 
     = new Float32Array(bvhNodesBufferNumElements);
     this.bvhNodeData [0] = this.scene.bvhNodes.length; // numNodes
-    // this.bvhNodeData [1] = this.scene.bvhNodes[
-    //   this.scene.bvhNodes.length - 1
-    // ].depth; // maxDepth
+    this.bvhNodeData [1] = Scene.bvhMaxDepth; // maxDepth
     for (let i = 2; i < bvhNodesArrayOffset; i++) { //padding
       this.bvhNodeData [i] = 0.0;
     }
@@ -1037,11 +1041,13 @@ export class Renderer {
   */
   private createScene() {
     this.scene = new Scene();
-    const sphereStructSizeBytes = //32
-      4 * 3 +  // position 
-      4 +      // radius
-      4 * 3 +  // color
-      4;       // material
+    const sphereStructSizeBytes = //48
+    4 * 3 +  // position 
+    4 +      // radius
+    4 * 3 +  // color
+    4     + // material
+    4     +  // roughness
+    12;        //padding
     this.sceneDataLength = 4*4 + sphereStructSizeBytes * this.scene.spheres.length;
 
   }

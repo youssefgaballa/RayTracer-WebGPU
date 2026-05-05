@@ -1,3 +1,4 @@
+import { Scene } from "../scene";
 import { Sphere } from "../sphere";
 import { aabb } from "./aabb";
 export class BVHNode {
@@ -20,7 +21,7 @@ export class BVHNode {
   max: Float32Array
 
   constructor(min: Float32Array, leftChild: number, max: Float32Array, rightChild: number, 
-    objIdx: number, hasRoot: number, sphereCount: number
+    objIdx: number, hasRoot: number, sphereCount: number, depth: number
   ) {
     this.min = min;
     this.leftChild = leftChild;
@@ -29,7 +30,7 @@ export class BVHNode {
     this.objectIdx = objIdx;
     this.hasRoot = hasRoot;
     this.sphereCount = sphereCount;
-
+    this.depth = depth;
   }
 
   static noArgs() {
@@ -45,6 +46,7 @@ export class BVHNode {
         Number.NEGATIVE_INFINITY]),
       -1,
       -1,
+      0,
       0,
       0
     );
@@ -65,19 +67,6 @@ export class BVHNodeObject {
   /*
   Builds the Bounding Volume Hierarchy.
   */
-  // constructor(objects: Sphere[], objectIndices: number[], 
-  // start: number, end: number, recursionDepth: number) {
-  //   this.recursionDepth = recursionDepth;
-  //   const objectSpan = end - start;
-  //   this.bbox = aabb.noArg();
-    
-  //   if (objectSpan <= 0) return;
-
-  //   for (let i = start; i < end; i++) {
-  //     this.bbox.expand(objects[objectIndices[i]].bbox);
-  //   }
-    
-  // }
   constructor(objects: Sphere[], objectIndices: number[], 
     start: number, end: number, recursionDepth: number) {
      
@@ -85,26 +74,20 @@ export class BVHNodeObject {
       const objectSpan = end - start;
       this.bbox = aabb.noArg();
       
-      // 1. Guard against empty ranges
       if (objectSpan <= 0) return;
   
-      // 2. Build the initial bounding box for this node
+      // Build the initial bounding box for this node
       for (let i = start; i < end; i++) {
         this.bbox.expand(objects[objectIndices[i]].bbox);
       }
-  
-      // 3. LEAF THRESHOLD: Stop if we have few enough objects
-      // if (objectSpan <= 4) {
-      //   this.sphereIndices = objectIndices.slice(start, end);
-      //   return;
-      // }
+ 
       if (objectSpan === 1) {
         this.sphereIndices = [objectIndices[start]];
         // For backward compatibility with your flatten logic:
         this.sphereIndex = objectIndices[start]; 
         return;
       }
-      // 4. SAH SPLITTING LOGIC
+      // SAH
       let bestAxis = -1;
       let bestSplitIndex = -1;
       let minCost = Number.POSITIVE_INFINITY;
@@ -209,11 +192,11 @@ export class BVHNodeObject {
         -1, // rightChild (unused in stackless, or used for padding)
         isLeaf ? node.sphereIndices[0] : -1, // objectIdx
         node.containsSphereZero ? 1 : 0,    // hasRoot
-        isLeaf ? node.sphereIndices.length : 0 // sphereCount
+        isLeaf ? node.sphereIndices.length : 0, // sphereCount
+        node.recursionDepth
       );
-      if (isLeaf) {
-        flatNode.depth = node.sphereIndices.length; 
-      }
+      Scene.bvhMaxDepth = Math.max(Scene.bvhMaxDepth,  node.recursionDepth);
+     
       flatNodes.push(flatNode);
 
       if (!isLeaf) {
@@ -256,7 +239,6 @@ export class BVHNodeObject {
   static flatten(root: BVHNodeObject): BVHNode[] {
     this.markPathToSphereZero(root);
     const flatNodes: BVHNode[] = [];
-  
     function traverse(node: BVHNodeObject) {
       const currentIndex = flatNodes.length;
   
@@ -267,17 +249,13 @@ export class BVHNodeObject {
         new Float32Array([node.bbox.x.min, node.bbox.y.min, node.bbox.z.min]),
         -1,
         new Float32Array([node.bbox.x.max, node.bbox.y.max, node.bbox.z.max]),
-        -1,
+        -1, // objectIdx. -1 is default
         isLeaf ? node.sphereIndices[0] : -1, // Store the first sphere index if leaf
-        0,
-        0
+        0, // hasRoot
+        0, // sphereCount
+        node.recursionDepth // depth
       );
-  
-      // OPTIONAL: Use the 'depth' field to store how many spheres are in this leaf
-      // This allows the GPU to loop through multiple spheres (e.g., 1-4)
-      if (isLeaf) {
-        flatNode.depth = node.sphereIndices.length; 
-      }
+      Scene.bvhMaxDepth = Math.max(Scene.bvhMaxDepth,  node.recursionDepth);
   
       flatNodes.push(flatNode);
   

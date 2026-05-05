@@ -13,8 +13,8 @@ export class Scene {
 
   sphereIndices!: number[]
   bvhNodes!: BVHNode[];
-  bvhNodeObject!: BVHNodeObject;
-
+  bvhNodeObject!: BVHNodeObject | undefined;
+  static bvhMaxDepth: number = 0;
   // bvhNodesUsed: number = 0;
   // nodes: Node[]
   // nodesUsed: number = 0
@@ -28,6 +28,11 @@ export class Scene {
   objectControls: HTMLDivElement 
   = document.getElementById("object-controls") as HTMLDivElement;
 
+  skyColorInput: HTMLInputElement 
+  = document.getElementById("skyColorInput") as HTMLInputElement;
+  skyColorReset: HTMLInputElement 
+  = document.getElementById("reset-skyColor") as HTMLInputElement;
+  skyColor!: Float32Array;
   sceneRadios: NodeListOf<HTMLInputElement>
   = document.querySelectorAll('input[name="scene"]');
   scene!: number;
@@ -39,10 +44,16 @@ export class Scene {
     this.registerInputListeners();
     
     this.buildScene();
-    this.createUI();
   }
 
 
+  updateScene() {
+    this.spheres.forEach((sphere) => {
+      sphere.updatebbox();
+    })
+    this.buildBVH();
+    this.debug();
+  }
 
   public debug() {
 
@@ -50,6 +61,8 @@ export class Scene {
       console.log("scene.spheres: ", this.spheres);
       console.log("scene.bvhnodes: ", this.bvhNodes);
       console.log("scene.bvhNodeObject: ", this.bvhNodeObject);
+      console.log("Scene.bvhMaxDepth: ", Scene.bvhMaxDepth);
+
       // console.log("scene: ", this);
     }
   }
@@ -70,16 +83,24 @@ export class Scene {
     // this.debug();
   }
 
+  private wgslColorToHex(color: number)  {
+    Math.round(Math.max(0, Math.min(1.0, color)) * 255).toString(16).padStart(2, '0')
+  }
+
   public createUI() {
+    this.objectControls.innerHTML = ``;
+    const h3 =  document.createElement("h3");
+    h3.textContent = "Object Controls: ";
+    this.objectControls.appendChild(h3);
     this.spheres.forEach((sphere: Sphere, idx: number) => {
       if (idx >= 12) return;
       if (idx == 0) return;
 
-      const details = document.createElement("details");
-      const summary = document.createElement("summary");
-      summary.textContent = `Sphere ${idx}`;
+      const sphereDetails = document.createElement("details");
+      const sphereSummary = document.createElement("summary");
+      sphereSummary.textContent = `Sphere ${idx}`;
 
-      details.appendChild(summary);
+      sphereDetails.appendChild(sphereSummary);
   
       const ul = document.createElement("ul");
   
@@ -87,18 +108,54 @@ export class Scene {
       // X --> 0, Y --> 1, Z --> 2
       const map: Record<string, number> = { 'X': 0, 'Y': 1, 'Z': 2 };
   
-      const createControl = (label: 'X' | 'Y' | 'Z' | 'Radius' | 'Color', 
+      const createControls = () => {
+        createControl("X", -15, 15, 0.1);
+        createControl("Y", -15, 15, 0.1);
+        createControl("Z", -15, 15, 0.1);
+        createControl("Radius", 0.1, 5, 0.1);
+        createControl("Color");
+        createControl("Material");
+        createControl("Fuzziness", 0.0, 1.0, 0.01);
+        createControl("Reset");
+      }
+      const createControl = (label: 'X' | 'Y' | 'Z' | 'Radius' | 'Color' | 'Material' | 'Fuzziness' | 'Reset', 
         min?: number, max?: number, step?: number) => {
         const li = document.createElement("li");
         li.textContent = `${label}: `;
 
-        if (label === 'Color') { // Setup color picker
+        if (label == 'Reset') {
+          const resetButton = document.createElement("button");
+          resetButton.textContent = "Reset";
+          resetButton.addEventListener("click", () => {
+            // Reset properties
+            sphere.position.set(sphere.initialProperties.position);
+            sphere.radius = sphere.initialProperties.radius;
+            sphere.color.set(sphere.initialProperties.color); 
+            sphere.material = sphere.initialProperties.material;
+            sphere.fuzziness = sphere.initialProperties.fuzziness;
+
+            // update bbox
+            Renderer.frameCount = 1;
+            Scene.updatedScene = true;
+            
+            // Re-sync the entire UI for this sphere to match new values
+            // this.objectControls.innerHTML = ''; 
+            // this.createUI(); 
+            ul.innerHTML = '';
+    
+            // 4. Re-run the control generation for just this sphere's list
+            // This assumes you wrap your createControl calls in a way they can be re-executed
+            createControls();
+          });
+          li.appendChild(resetButton);
+
+        } else if (label === 'Color') { // Setup color picker
           const picker = document.createElement("input");
           picker.type = "color";
           
           // Helper to convert Float32 (0-1) to Hex for the picker
-          const toHex = (c: number) => Math.round(Math.max(0, Math.min(1, c)) * 255).toString(16).padStart(2, '0');
-          picker.value = `#${toHex(sphere.color[0])}${toHex(sphere.color[1])}${toHex(sphere.color[2])}`;
+          picker.value = 
+          `#${this.wgslColorToHex(sphere.color[0])}${this.wgslColorToHex(sphere.color[1])}${this.wgslColorToHex(sphere.color[2])}`;
           
           picker.addEventListener("input", (e) => {
             const hex = (e.target as HTMLInputElement).value;
@@ -110,6 +167,44 @@ export class Scene {
             Scene.updatedScene = true; // Signals update() to re-run writeBuffers and buildBVH
           });
           li.appendChild(picker);
+        } else if (label === "Material") {
+          const select = document.createElement("select");
+          const materials = ["Matte", "Metallic", "Dielectric", "Emissive"];
+          materials.forEach((name, value) => {
+            const option = document.createElement("option");
+            option.value = value.toString();
+            option.textContent = name;
+            if (sphere.material === value) option.selected = true;
+            select.appendChild(option);
+          });
+
+          select.addEventListener("change", (e) => {
+            sphere.material = parseInt((e.target as HTMLSelectElement).value);
+            Renderer.frameCount = 1;
+            Scene.updatedScene = true;
+          });
+          li.appendChild(select);
+        } else if (label === "Fuzziness") {
+          const roughnessSlider = document.createElement("input");
+          roughnessSlider.type = "range";
+          if (min == undefined || max == undefined || step == undefined) return;
+          roughnessSlider.min = min.toString();
+          roughnessSlider.max = max.toString();
+          roughnessSlider.step = step.toString();
+          roughnessSlider.value = sphere.fuzziness.toString();
+
+          const roughnessLabel = document.createElement("span");
+          roughnessLabel.textContent = roughnessSlider.value;
+
+          roughnessSlider.addEventListener("input", (e) => {
+            const val = parseFloat((e.target as HTMLInputElement).value);
+            roughnessLabel.textContent = val.toString();
+            sphere.fuzziness = val;
+            Renderer.frameCount = 1;
+            Scene.updatedScene = true;
+          });
+          li.appendChild(roughnessSlider);
+          li.appendChild(roughnessLabel);
         } else if (label === "Radius") { // Radius
           const radiusSlider = document.createElement("input");
           radiusSlider.type = "range";
@@ -164,14 +259,11 @@ export class Scene {
       };
   
       // Correctly mapped labels
-      createControl("X", -15, 15, 0.1);
-      createControl("Y", -15, 15, 0.1);
-      createControl("Z", -15, 15, 0.1);
-      createControl("Radius", 0.1, 5, 0.1);
-      createControl("Color");
+      createControls();
+
   
-      details.appendChild(ul);
-      this.objectControls.appendChild(details);
+      sphereDetails.appendChild(ul);
+      this.objectControls.appendChild(sphereDetails);
      
     })
   }
@@ -204,7 +296,38 @@ export class Scene {
     });
     this.numSpheresSlider.value = this.numSpheres.toString();
     this.numSpheresSpan.textContent = this.numSpheres.toString();
-    
+
+    const defaultSkyColor = '#80b3ff';
+    this.skyColorReset.addEventListener("click", (e) => {
+      this.skyColorInput.value=defaultSkyColor;
+      const skyColorHex = this.skyColorInput.value;
+      this.skyColor = new Float32Array([
+        parseInt(skyColorHex.slice(1, 3), 16) / 255,
+        parseInt(skyColorHex.slice(3, 5), 16) / 255,
+        parseInt(skyColorHex.slice(5, 7), 16) / 255
+      ]);
+      Renderer.frameCount = 1;
+      Scene.updatedScene = true;
+    });
+    this.skyColorInput.value=defaultSkyColor;
+    this.skyColorInput.addEventListener("input", (e) => {
+      const hex = (e.target as HTMLInputElement).value;
+      // Update the Float32Array directly
+      this.skyColor = new Float32Array([
+        parseInt(hex.slice(1, 3), 16) / 255,
+        parseInt(hex.slice(3, 5), 16) / 255,
+        parseInt(hex.slice(5, 7), 16) / 255
+      ])
+
+      Renderer.frameCount = 1;
+      Scene.updatedScene = true; // Signals update() to re-run writeBuffers and buildBVH
+    });
+    const skyColorHex = this.skyColorInput.value;
+    this.skyColor = new Float32Array([
+      parseInt(skyColorHex.slice(1, 3), 16) / 255,
+      parseInt(skyColorHex.slice(3, 5), 16) / 255,
+      parseInt(skyColorHex.slice(5, 7), 16) / 255
+    ])
   }
 
   public createRandomSpheres(num: number) {
@@ -222,10 +345,11 @@ export class Scene {
           0.3 + 0.7 * Math.random(),
           0.3 + 0.7 * Math.random(),
         ],
-        0
+        0, 1.0
       ), i++)
 
     }
+    this.createUI();
 
   }
 
@@ -234,24 +358,31 @@ export class Scene {
     let i = 0;
     const bigR = 2000
     this.addObject(new Sphere(
-      [0.0, -bigR, 0.0], bigR, [0.0, 0.7, 0.3],0
+      [0.0, -bigR, 0.0], bigR, [0.0, 0.7, 0.3],
+      0, 1.0
     ), i++) // floor - 0
     .addObject(new Sphere(
-      [5.0, 3.0, 0.0], 3, [1.0, 1.0, 0.0],1  //yellow - 1
+      [5.0, 3.0, 0.0], 3, [1.0, 1.0, 0.0],
+      1 , 0.0  //yellow - 1
     ), i++) 
     .addObject(new Sphere(
-      [-5.0, 1.9, -12], 1.0, [1.0, 0.2, 0.0],0 //orange - 2
+      [-5.0, 1.9, -12], 1.0, [1.0, 0.2, 0.0],
+      1, 0.2  //orange - 2
     ), i++)
     .addObject(new Sphere(
-      [0.0, 6.3, -11.0], radius, [0.0, 1.0, 0.0],0 // green - 3
+      [0.0, 6.3, -11.0], radius, [0.0, 1.0, 0.0],
+      0, 1.0 // green - 3
     ), i++)
     .addObject(new Sphere(
-      [0.0, 2.3, -10.0], radius, [0.0, 0.0, 1.0],0 //blue - 4
+      [0.0, 2.3, -10.0], radius, [0.0, 0.0, 1.0],
+      0, 1.0//blue - 4
     ), i++)
     .addObject(new Sphere(
-      [-2.0, 4.3, -10.0], radius, [1.0, 0.0, 1.0],0 // magenta -5
+      [-2.0, 4.3, -10.0], radius, [1.0, 0.0, 1.0],
+      0, 1.0// magenta -5
     ), i++);
-    
+    this.createUI();
+
   }
   public addObject(obj: Sphere, idx: number) {
     this.spheres.push(obj);
@@ -266,19 +397,20 @@ export class Scene {
     
     // }
     this.bvhNodes = [];
+    this.bvhNodeObject =  {} as BVHNodeObject;
+
     this.bvhNodeObject = new BVHNodeObject(this.spheres, this.sphereIndices, 0, 
-      this.spheres.length, 0);
-    if (debug){
-    }
+    this.spheres.length, 0);
+ 
     this.rebuildBVH();
     
   }
 
   rebuildBVH() {
     if (Renderer.toggleBVH == 0 || Renderer.toggleBVH == 1) {
-      this.bvhNodes = BVHNodeObject.flatten(this.bvhNodeObject );
+      this.bvhNodes = BVHNodeObject.flatten(this.bvhNodeObject! );
     } else if (Renderer.toggleBVH == 2) { // stackless BVH
-      this.bvhNodes = BVHNodeObject.flattenStackless(this.bvhNodeObject );
+      this.bvhNodes = BVHNodeObject.flattenStackless(this.bvhNodeObject! );
     }
   }
 

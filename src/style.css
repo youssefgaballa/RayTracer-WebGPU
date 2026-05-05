@@ -129,9 +129,13 @@ li > * {
   flex-shrink: 0;
   overflow: hidden;
 } */
+#object-controls {
+  min-width: 19rem;
+}
  h3 {
   font-family: var(--heading);
  }
+
 
 li {
   display: flex;

@@ -2,15 +2,16 @@ struct Sphere { // 16 bytes
   position: vec3<f32>,
   radius: f32,
   color: vec3<f32>,
-  material: f32
+  material: f32,
+  fuzz: f32,
+  padding0: f32,
+  padding1: f32,
+  padding2: f32,
 } // byte aligned to 16 bytes
 
 struct SceneData { // 16 + sizeof(spheres)bytes
+  skyColor: vec3<f32>,
   sphereCount: u32,
-  // 12 bytes padding
-  p0: u32,
-  p1: u32,
-  p2: u32,
   spheres: array<Sphere>,
 }
 
@@ -38,7 +39,8 @@ struct HitRecord {
   position: vec3<f32>,
   t: f32,
   normal: vec3<f32>,
-  material: f32
+  material: f32,
+  fuzz: f32
 }
 
 
@@ -81,7 +83,7 @@ struct RenderData { // 32
 
 @group(0) @binding(0) var color_buffer: texture_storage_2d<rgba8unorm, write>;
 @group(0) @binding(1) var<uniform> cameraData: CameraData;
-@group(0) @binding(2) var<storage, read> objects: SceneData;
+@group(0) @binding(2) var<storage, read> scene: SceneData;
 @group(0) @binding(3) var<uniform> renderData: RenderData;
 @group(0) @binding(4) var<storage, read_write> accumulation_buffer: array<vec4<f32>>;
 @group(0) @binding(5) var<storage, read> bvh: BVH;
@@ -186,56 +188,60 @@ fn rayColor(ray: Ray, seed: ptr<function, u32>) -> HitRecord {
   for (var depth: u32 = 0; depth < maxDepth; depth++) {
     var hitRecord: HitRecord;
     var nearestHit = 10000.0;
-    var hitSomething = false;
 
     if (renderData.useBVH == 0){
       var nextIdx: u32 = 0;
-      for (var i: u32 = 0; i < objects.sphereCount; i++) {
-        if (hit(currentRay, objects.spheres[i], 0.001, nearestHit, &hitRecord)) {
+      for (var i: u32 = 0; i < scene.sphereCount; i++) {
+        if (hit(currentRay, scene.spheres[i], 0.001, nearestHit, &hitRecord)) {
           nearestHit = hitRecord.t;
-          hitSomething = true;
-          hitRecord.hitAnything = true;
         }
       }
     } else if (renderData.useBVH == 1) { // BVH traversal with stack -- slower
       if (hitBVH(currentRay, &hitRecord)) {
 
         nearestHit = hitRecord.t;
-        hitSomething = true;
-        // hitRecord.hitAnything = true;
       }
       
     } else if (renderData.useBVH == 2) { // BVH stackless traversal
       if (hitBVHStackless(currentRay, &hitRecord)) {
 
         nearestHit = hitRecord.t;
-        hitSomething = true;
-        // hitRecord.hitAnything = true;
       }
     }
-    if (hitSomething) {
-      var scatterDirection: vec3<f32>;
-      if (!firstHitCaptured) {
+    if (hitRecord.hitAnything == true) {
+      if (!firstHitCaptured) { 
+        // used to record the t value for the hit on the actual sphere
+        // needed for depth testing the boxes so that visually we cant see lines behind the sphere
         resultHitRecord.t = hitRecord.t;
-        resultHitRecord.hitAnything = true;
-        // resultHitRecord.position = hitRecord.position;
-        // resultHitRecord.normal = hitRecord.normal;
         firstHitCaptured = true;
       }
-      if (renderData.diffuseType == 0 && hitRecord.material == 0) { // simple diffuse - matte
-        scatterDirection = random_on_hemisphere(hitRecord.normal, seed);
-      } else if (renderData.diffuseType == 1 && hitRecord.material == 0) { // lambertian - matte
-        scatterDirection = hitRecord.normal + random_unit_vector(seed);
+      var scatterDirection: vec3<f32>;
+
+      if (hitRecord.material == 0) {  // matte
+        
+        if (renderData.diffuseType == 0) {// simple diffuse - matte
+          scatterDirection = random_on_hemisphere(hitRecord.normal, seed);
+        } else {// lambertian - matte
+          scatterDirection = hitRecord.normal + random_unit_vector(seed);
+        }
+        throughput *= hitRecord.color * 0.5;
+
       } else if (hitRecord.material == 1) { // metallic
-        scatterDirection = currentRay.direction 
-          - dot(currentRay.direction, hitRecord.normal) * hitRecord.normal;
+        // scatterDirection = currentRay.direction 
+        //   - dot(currentRay.direction, hitRecord.normal) * hitRecord.normal;
+        scatterDirection = reflect(normalize(currentRay.direction), normalize(hitRecord.normal))
+          + hitRecord.fuzz * random_on_hemisphere(hitRecord.normal, seed);
+        let t = 0.5 * (currentRay.direction.y + 1.0); // ranges between 0 and 1.0
+        // interpolated between white and skycolor based on currentRay.direction.y
+        let skyColor = (1.0 - t) * vec3(1.0, 1.0, 1.0) + t * scene.skyColor;
+        throughput *= ((1.0 - t) * vec3(1.0, 1.0, 1.0) + t * skyColor);
       }
       currentRay.origin = hitRecord.position; // + (hitRecord.normal * 0.001);
       currentRay.direction = normalize(scatterDirection);
-      throughput *= hitRecord.color * 0.5;
+      
     } else {
       let t = 0.5 * (currentRay.direction.y + 1.0);
-      let skyColor = (1.0 - t) * vec3(1.0, 1.0, 1.0) + t * vec3(0.5, 0.7, 1.0);
+      let skyColor = (1.0 - t) * vec3(1.0, 1.0, 1.0) + t * scene.skyColor;
       resultingColor = throughput * skyColor;
       break;
     }
@@ -249,7 +255,32 @@ fn rayColor(ray: Ray, seed: ptr<function, u32>) -> HitRecord {
 
   return resultHitRecord;
 }
+fn hit(ray: Ray, sphere: Sphere, tMin: f32, tMax: f32, 
+  outHitRecord: ptr<function, HitRecord>) -> bool  {
+  let co: vec3<f32> = ray.origin - sphere.position;
+  let a: f32 = dot(ray.direction, ray.direction);
+  let b: f32 = 2.0 * dot(ray.direction, co);
+  let c: f32 = dot(co, co) - sphere.radius * sphere.radius;
+  let discriminant: f32 = b * b - 4.0 * a * c;
 
+  if (discriminant > 0.0) {
+
+    let t: f32 = (-b - sqrt(discriminant)) / (2 * a);
+
+    if (t > tMin && t < tMax) {
+    (*outHitRecord).t = t;
+    (*outHitRecord).position = ray.origin + t * ray.direction;
+    (*outHitRecord).normal = normalize(((*outHitRecord).position - sphere.position));
+    (*outHitRecord).color = sphere.color;
+    (*outHitRecord).material = sphere.material;
+    (*outHitRecord).fuzz = sphere.fuzz;
+
+    (*outHitRecord).hitAnything = true;
+    return true;
+    }
+  }
+  return false;
+}
 fn hitBVHStackless(ray: Ray, outHitRecord: ptr<function, HitRecord>) -> bool {
   var i: u32 = 0u;
   let nodeCount: u32 = arrayLength(&bvh.nodes);
@@ -274,7 +305,7 @@ fn hitBVHStackless(ray: Ray, outHitRecord: ptr<function, HitRecord>) -> bool {
       if (node.objectIndex >= 0.0) {
         let sphereIdx = u32(node.objectIndex);
         
-        if (hit(ray, objects.spheres[sphereIdx], 0.001, closestT, &leafHitRecord)) { 
+        if (hit(ray, scene.spheres[sphereIdx], 0.001, closestT, &leafHitRecord)) { 
           (*outHitRecord) = leafHitRecord;
           // (*outHitRecord).hitAnything = true;
           // (*outHitRecord).t = leafHitRecord.t;
@@ -308,7 +339,7 @@ fn hitBVH(ray: Ray, outHitRecord: ptr<function, HitRecord>) -> bool { // 0.001, 
   (*outHitRecord).hitAnything = false;
   // t represents distance to nearest object hit so far. initialized to +infinity
   var closestT: f32 = 3.0e+38; 
-  var stack: array<u32, 32>; // Max depth of 32 is enough for 2^32 objects
+  var stack: array<u32, 32>; // Max depth of 32 is enough for 2^32 scene
   var stackPtr: i32 = 0;
   stack[0] = 0; // Start at root node
   let invD = 1.0 / ray.direction; // only 1 division calculation
@@ -363,7 +394,7 @@ fn hitBVH(ray: Ray, outHitRecord: ptr<function, HitRecord>) -> bool { // 0.001, 
       if (stackPtr > 30) { break; }
     } else { // leaf node
       let sphereIdx = u32(node.objectIndex);
-      if (hit(ray, objects.spheres[sphereIdx], 0.001, closestT, &leafHitRecord)) { 
+      if (hit(ray, scene.spheres[sphereIdx], 0.001, closestT, &leafHitRecord)) { 
         //if ray intersects spherex
         (*outHitRecord) = leafHitRecord;
         closestT = leafHitRecord.t;
@@ -396,30 +427,7 @@ fn hitAABB(ray: Ray, invD: vec3<f32>, node_min: vec3<f32>, node_max: vec3<f32>,
     return false;
 }
 
-fn hit(ray: Ray, sphere: Sphere, tMin: f32, tMax: f32, 
-  outHitRecord: ptr<function, HitRecord>) -> bool  {
-  let co: vec3<f32> = ray.origin - sphere.position;
-  let a: f32 = dot(ray.direction, ray.direction);
-  let b: f32 = 2.0 * dot(ray.direction, co);
-  let c: f32 = dot(co, co) - sphere.radius * sphere.radius;
-  let discriminant: f32 = b * b - 4.0 * a * c;
 
-  if (discriminant > 0.0) {
-
-    let t: f32 = (-b - sqrt(discriminant)) / (2 * a);
-
-    if (t > tMin && t < tMax) {
-    (*outHitRecord).t = t;
-    (*outHitRecord).position = ray.origin + t * ray.direction;
-    (*outHitRecord).normal = normalize(((*outHitRecord).position - sphere.position));
-    (*outHitRecord).color = sphere.color;
-    (*outHitRecord).material = sphere.material;
-    (*outHitRecord).hitAnything = true;
-    return true;
-    }
-  }
-  return false;
-}
 // fn hitAABB_fast(ray: Ray, invD: vec3<f32>, node_min: vec3<f32>, node_max: vec3<f32>) -> f32 {
 //     let t0 = (node_min - ray.origin) * invD;
 //     let t1 = (node_max - ray.origin) * invD;
