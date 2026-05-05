@@ -121,7 +121,7 @@ export class Scene {
     this.numSpheresSpan.textContent = this.numSpheres.toString();
 
     const defaultSkyColor = '#80b3ff';
-    this.skyColorReset.addEventListener("click", (e) => {
+    this.skyColorReset.addEventListener("click", () => {
       this.skyColorInput.value=defaultSkyColor;
       const skyColorHex = this.skyColorInput.value;
       this.skyColor = new Float32Array([
@@ -133,8 +133,8 @@ export class Scene {
       Scene.updatedScene = true;
     });
     this.skyColorInput.value=defaultSkyColor;
-    this.skyColorInput.addEventListener("input", (e) => {
-      const hex = (e.target as HTMLInputElement).value;
+    this.skyColorInput.addEventListener("input", (event: InputEvent) => {
+      const hex = (event.target as HTMLInputElement).value;
       // Update the Float32Array directly
       this.skyColor = new Float32Array([
         parseInt(hex.slice(1, 3), 16) / 255,
@@ -190,7 +190,7 @@ export class Scene {
   public createScene1() {
     const radius = 0.5
     let i = 2;
-    const bigR = 2000
+    // const bigR = 2000
     this.addFloor()
     // .addObject(new Sphere(
     //   [0.0, -bigR, 0.0], bigR, [0.0, 0.7, 0.3],// floor - 0
@@ -214,6 +214,14 @@ export class Scene {
       1.0 // index of refraction
     ), i++)
     .addSphere(new Sphere(
+      [-2.0, 4.3, 0.0], 3, [1.0, 1.0, 0.0],// 7: yellow
+      2, // refractive
+      0.0,
+      1.0,
+      1.0 // index of refraction  
+    ), i++)
+    
+    .addSphere(new Sphere(
       [0.0, 6.3, -11.0], radius, [0.0, 1.0, 0.0],//4:  green
       0, // refractive
       1.0,
@@ -234,13 +242,7 @@ export class Scene {
       0.0,
       1.0 // index of refraction 
     ), i++)
-    .addSphere(new Sphere(
-      [-2.0, 4.3, 0.0], 3, [1.0, 1.0, 0.0],// 7: yellow
-      2, // refractive
-      0.0,
-      1.0,
-      1.0 // index of refraction  
-    ), i++);
+;
     this.createUI();
     this.debug()
   }
@@ -412,7 +414,7 @@ export class Scene {
           toggleCheckerBoard.classList.add("toggle-btn")
           toggleCheckerBoard.classList.add("active")
 
-          toggleCheckerBoard.addEventListener("click", (event: InputEvent) => {
+          toggleCheckerBoard.addEventListener("click", () => {
             toggleCheckerBoard.classList.toggle("active");
             Renderer.isCheckerBoard = 
             toggleCheckerBoard.classList.contains("active") ? 1 : 0;

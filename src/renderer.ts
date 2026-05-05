@@ -4,10 +4,7 @@ import textureShader from "./shaders/textureShader.wgsl?raw";
 import computeShader from "./shaders/computeShader.wgsl?raw";
 import type { Sphere } from "./sphere";
 import type { Triangle } from "./triangle";
-const DiffuseTypes: { simpleDiffuse: number, lambertian: number; } =  {
-  simpleDiffuse: 0,
-  lambertian: 1
-};
+
 export class Renderer {
   public isSupported: boolean = true;
   public static canvas: HTMLCanvasElement;
@@ -29,7 +26,7 @@ export class Renderer {
   private cameraData!: Float32Array; // 16 elements (including padding)
   private bvhNodeData!: Float32Array;
   public static frameCount = 1;
-  public static isCheckerBoard;
+  public static isCheckerBoard: number;
   /*
   Needed so that movement speed is independent of frame rate
   */
@@ -44,6 +41,11 @@ export class Renderer {
   private toggleAccumulateFramesBtn: HTMLButtonElement 
   = document.getElementById("accumulateFrames-btn") as HTMLButtonElement;
 
+  /*
+  DiffuseTypes:
+  simpleDiffuse: 0,
+  lambertian: 1
+  */
   private diffuseType!: number;
   private toggleDiffuseTypeBtn: HTMLSelectElement 
     = document.getElementById("diffuseType") as HTMLSelectElement;
@@ -253,7 +255,6 @@ export class Renderer {
     if (this.scene.camera.updatedCamera == true) {
       this.scene.camera.update();
       this.writeCameraBuffer(false);
-      this.scene.camera.updatedCamera = false;
       if (this.accumulateFrames == 0){
         Renderer.frameCount = 1;
       }
