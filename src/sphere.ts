@@ -66,7 +66,7 @@ export class Sphere {
       console.log("a", a);
       console.log("b", b);
     }
-    this.bbox = aabb.fromVec3(
+    this.bbox = aabb.fromVec3f(
       new Float32Array(a), new Float32Array(b)
     );
   }

@@ -9,22 +9,36 @@ struct Sphere { // 48 bytes
   padding1: f32,
 } // byte aligned to 16 bytes
 
-struct SceneData { // 16 + sizeof(spheres) bytes
+struct Triangle { // 16*4 = 64 bytes
+    v0: vec3f,
+    reflectivity: f32,
+
+    v1: vec3f,
+    refractivity: f32,
+
+    v2: vec3f,
+    material: f32,
+
+    color: vec3f,
+    p0: f32,
+    
+    normal: vec3f,    // Precomputed normal
+    p1: f32,
+}; // byte aligned to 16 bytes
+
+struct SpheresData { // 16 + sizeof(spheres) bytes
   skyColor: vec3<f32>,
   sphereCount: u32,
   spheres: array<Sphere>,
 }
+struct TriangleData { // 16 + sizeof(spheres) bytes
+  sphereCount: u32,
+  p0: f32,
+  p1: f32,
+  p2: f32,
+  triangles: array<Triangle>,
+}
 
-struct Triangle {
-    v0: vec3f,
-    color: vec3f,
-    v1: vec3f,
-    material: f32,
-    v2: vec3f,
-    reflectivity: f32,
-    normal: vec3f,    // Precomputed normal
-    refractivity: f32,
-};
 
 struct Ray {
   direction: vec3<f32>,
@@ -99,11 +113,12 @@ struct RenderData { // 4*11 = 44 bytes
 
 @group(0) @binding(0) var color_buffer: texture_storage_2d<rgba8unorm, write>;
 @group(0) @binding(1) var<uniform> cameraData: CameraData;
-@group(0) @binding(2) var<storage, read> scene: SceneData;
-@group(0) @binding(3) var<uniform> renderData: RenderData;
-@group(0) @binding(4) var<storage, read_write> accumulation_buffer: array<vec4<f32>>;
-@group(0) @binding(5) var<storage, read> bvh: BVH;
-@group(0) @binding(6) var depthBuffer: texture_storage_2d<r32float, write>;
+@group(0) @binding(2) var<storage, read> spheresData: SpheresData;
+@group(0) @binding(3) var<storage, read> trianglesData: TriangleData;
+@group(0) @binding(4) var<uniform> renderData: RenderData;
+@group(0) @binding(5) var<storage, read_write> accumulation_buffer: array<vec4<f32>>;
+@group(0) @binding(6) var<storage, read> bvh: BVH;
+@group(0) @binding(7) var depthBuffer: texture_storage_2d<r32float, write>;
 
 @compute @workgroup_size(8,8,1)
 fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
@@ -222,8 +237,10 @@ fn rayColor(ray: Ray, seed: ptr<function, u32>) -> HitRecord {
 
     if (renderData.useBVH == 0){
       var nextIdx: u32 = 0;
-      for (var i: u32 = 0; i < scene.sphereCount; i++) {
-        if (hit(currentRay, scene.spheres[i], 0.001, nearestHit, &hitRecord)) {
+      if (hit_triangle(currentRay, trianglesData.triangles[0], 0.001, nearestHit, &hitRecord)) {nearestHit = hitRecord.t;}
+      if (hit_triangle(currentRay, trianglesData.triangles[1], 0.001, nearestHit, &hitRecord)) {nearestHit = hitRecord.t;}
+      for (var i: u32 = 0; i < spheresData.sphereCount; i++) {
+        if (hit(currentRay, spheresData.spheres[i], 0.001, nearestHit, &hitRecord)) {
           nearestHit = hitRecord.t;
         }
       }
@@ -241,7 +258,7 @@ fn rayColor(ray: Ray, seed: ptr<function, u32>) -> HitRecord {
     }
      // interpolated between white and skycolor based on currentRay.direction.y
     let t = 0.5 * (currentRay.direction.y + 1.0);
-    let skyColor = (1.0 - t) * vec3(1.0, 1.0, 1.0) + t * scene.skyColor;
+    let skyColor = (1.0 - t) * vec3(1.0, 1.0, 1.0) + t * spheresData.skyColor;
     if (hitRecord.hitAnything == true) {
       if (!firstHitCaptured) { 
         // used to record the t value for the hit on the actual sphere
@@ -269,9 +286,9 @@ fn rayColor(ray: Ray, seed: ptr<function, u32>) -> HitRecord {
         //   + hitRecord.fuzz * random_on_hemisphere(hitRecord.normal, seed);
        scatterDirection = mix(diffuseDir, reflectDir, hitRecord.reflectivity);
         // throughput *=  ((1.0 - t) * vec3(1.0, 1.0, 1.0) + t * skyColor);
-        let color = ((1.0 - t) * vec3(1.0, 1.0, 1.0) + t * skyColor);
+        // let color = ((1.0 - t) * vec3(1.0, 1.0, 1.0) + t * skyColor);
         // throughput *= color * mix(0.5, 1.0, hitRecord.reflectivity);
-        throughput *= color * mix(0.0, 1.0, hitRecord.reflectivity)
+        throughput *= skyColor * mix(0.0, 1.0, hitRecord.reflectivity)
         + hitRecord.color * mix(1.0, 0.0, hitRecord.reflectivity);
 
       } else if (hitRecord.material == 2) { // refractive material
@@ -289,11 +306,6 @@ fn rayColor(ray: Ray, seed: ptr<function, u32>) -> HitRecord {
           isEnteringMaterial
         );
 
-        // let normal = select(
-        //   -hitRecord.normal,
-        //   hitRecord.normal,        
-        //   isEnteringMaterial
-        // );
         let airReflectivity = 1.0; // Note: the index of refraction of air is 1.0
 
         /*
@@ -324,22 +336,22 @@ fn rayColor(ray: Ray, seed: ptr<function, u32>) -> HitRecord {
           let reflectDir = normalize(reflect(currentRay.direction, hitRecord.normal) 
             + hitRecord.fuzz * random_on_hemisphere(hitRecord.normal, seed));
         
-          // scatterDirection = mix(diffuseDir, reflectDir, hitRecord.reflectivity);
+          scatterDirection = mix(diffuseDir, reflectDir, hitRecord.reflectivity);
 
           // scatterDirection = reflect(
           //   currentRay.direction,
           //   hitRecord.normal,
           // );
-          scatterDirection = reflect(currentRay.direction, normal);
+          // scatterDirection = reflect(currentRay.direction,  normal);
           
-          // throughput *= skyColor * mix(0.0, 1.0, hitRecord.reflectivity)
-          //   + hitRecord.color * mix(1.0, 0.0, hitRecord.reflectivity);
-          throughput *= vec3f(1.0,1.0,1.0);
-          // throughput *= 0.5 * hitRecord.color;
+          throughput *= skyColor * mix(0.0, 1.0, hitRecord.reflectivity)
+           + hitRecord.color * mix(1.0, 0.0, hitRecord.reflectivity);
+          // throughput *= vec3f(1.0,1.0,1.0);
+          // throughput *= 0.1 * hitRecord.color;
         } else {
           scatterDirection = refract(
             currentRay.direction,
-            normal,
+             hitRecord.normal,
             ri
           );
           // throughput *= 0.5*hitRecord.color;
@@ -402,6 +414,53 @@ fn hit(ray: Ray, sphere: Sphere, tMin: f32, tMax: f32,
   // (*outHitRecord).t = 3.0e+38; // close to infinity on miss
   return false;
 }
+fn hit_triangle(ray: Ray, tri: Triangle, t_min: f32, t_max: f32, outHitRecord: ptr<function, HitRecord>) -> bool {
+    // var rec: HitRecord;
+    // rec.hitAnything = false;
+
+    let edge1 = tri.v1 - tri.v0;
+    let edge2 = tri.v2 - tri.v0;
+    let h = cross(ray.direction, edge2);
+    let a = dot(edge1, h);
+
+    if (a > -0.000001 && a < 0.000001) { return false; } // Ray is parallel
+
+    let f = 1.0 / a;
+    let s = ray.origin - tri.v0;
+    let u = f * dot(s, h);
+
+    if (u < 0.0 || u > 1.0) { return false; }
+
+    let q = cross(s, edge1);
+    let v = f * dot(ray.direction, q);
+
+    if (v < 0.0 || u + v > 1.0) { return false; }
+
+    let t = f * dot(edge2, q);
+
+    if (t > t_min && t < t_max) {
+        (*outHitRecord).t = t;
+        (*outHitRecord).position = ray.origin + t * ray.direction;
+        (*outHitRecord).normal = tri.normal;
+        (*outHitRecord).material = tri.material;
+        (*outHitRecord).reflectivity = tri.reflectivity;
+        (*outHitRecord).refractivity = tri.refractivity;
+
+        (*outHitRecord).hitAnything = true;
+
+        // (*outHitRecord).color = tri.color;
+        let scale = 1.0; // Size of checks
+        let checker = (floor((*outHitRecord).position.x * scale) + floor((*outHitRecord).position.z * scale)) % 2.0;
+        var color = vec3<f32>(0.0);
+         if (abs(checker) < 0.001) {
+          (*outHitRecord).color  = vec3<f32>(1.0); // White
+        } else {
+          (*outHitRecord).color  = vec3<f32>(0.0); // Black
+        }
+        return true;
+    }
+    return false;
+}
 fn hitBVHStackless(ray: Ray, outHitRecord: ptr<function, HitRecord>) -> bool {
   var i: u32 = 0u;
   let nodeCount: u32 = arrayLength(&bvh.nodes);
@@ -426,7 +485,7 @@ fn hitBVHStackless(ray: Ray, outHitRecord: ptr<function, HitRecord>) -> bool {
       if (node.objectIndex >= 0.0) {
         let sphereIdx = u32(node.objectIndex);
         
-        if (hit(ray, scene.spheres[sphereIdx], 0.001, closestT, &leafHitRecord)) { 
+        if (hit(ray, spheresData.spheres[sphereIdx], 0.001, closestT, &leafHitRecord)) { 
           (*outHitRecord) = leafHitRecord;
           // (*outHitRecord).hitAnything = true;
           // (*outHitRecord).t = leafHitRecord.t;
@@ -515,7 +574,7 @@ fn hitBVH(ray: Ray, outHitRecord: ptr<function, HitRecord>) -> bool { // 0.001, 
       if (stackPtr > 30) { break; }
     } else { // leaf node
       let sphereIdx = u32(node.objectIndex);
-      if (hit(ray, scene.spheres[sphereIdx], 0.001, closestT, &leafHitRecord)) { 
+      if (hit(ray, spheresData.spheres[sphereIdx], 0.001, closestT, &leafHitRecord)) { 
         //if ray intersects spherex
         (*outHitRecord) = leafHitRecord;
         closestT = leafHitRecord.t;

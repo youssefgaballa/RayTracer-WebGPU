@@ -2,6 +2,8 @@ import { debug } from "./main";
 import { Scene } from "./scene";
 import textureShader from "./shaders/textureShader.wgsl?raw";
 import computeShader from "./shaders/computeShader.wgsl?raw";
+import type { Sphere } from "./sphere";
+import type { Triangle } from "./triangle";
 const DiffuseTypes: { simpleDiffuse: number, lambertian: number; } =  {
   simpleDiffuse: 0,
   lambertian: 1
@@ -19,8 +21,10 @@ export class Renderer {
 
   /* Actual Data that is fed into Buffers and Textures */
   private scene!: Scene;
-  private sceneDataLength!: number;
-  private sceneData!: ArrayBuffer
+  private sphereDataLength!: number;
+  private sphereData!: ArrayBuffer
+  private triangleDataLength!: number;
+  private triangleData!: ArrayBuffer;
   private renderData!: Uint32Array;
   private cameraData!: Float32Array; // 16 elements (including padding)
   private bvhNodeData!: Float32Array;
@@ -77,6 +81,7 @@ export class Renderer {
   private sampler!: GPUSampler;
   private cameraBuffer!: GPUBuffer;
   private spheresBuffer!: GPUBuffer;
+  private trianglesBuffer!: GPUBuffer;
   private accumulationBuffer!: GPUBuffer;
   private bvhNodesBuffer!: GPUBuffer;
   private boxVertexBuffer!: GPUBuffer;
@@ -177,7 +182,7 @@ export class Renderer {
       if (event.detail === 0) return; 
       this.toggleTemporalAccumulationBtn?.classList.toggle('active');
       this.temporalAccumulation = this.temporalAccumulation == 0 ? 1: 0;
-      // Renderer.frameCount = 1;
+      Renderer.frameCount = 1;
     });
     this.toggleAccumulateFramesBtn.addEventListener('click', (event: MouseEvent) => {
       if (event.detail === 0) return; 
@@ -276,6 +281,8 @@ export class Renderer {
     if (Scene.updatedScene ==  true) {
       this.scene.updateScene();
       this.writeSpheresBuffer(false);
+      this.writeTrianglesBuffer(false);
+
       this.writeBVHNodesBuffer();
       this.configureBindGroups();
       Scene.updatedScene = false;
@@ -487,19 +494,27 @@ export class Renderer {
           }
         },
         {
-          binding: 3, // @binding(3) - renderDataBuffer
+          binding: 3, // @binding(3) - triangleDataBuffer
+          visibility: GPUShaderStage.COMPUTE,
+          buffer: {
+            type: "read-only-storage",
+            hasDynamicOffset: false
+          }
+        },
+        {
+          binding: 4, // @binding(4) - renderDataBuffer
           visibility: GPUShaderStage.COMPUTE,
           buffer: {
             type: "uniform"
           }
         },
         {
-          binding: 4, // @binding(4) - accumulationBuffer
+          binding: 5, // @binding(5) - accumulationBuffer
           visibility: GPUShaderStage.COMPUTE,
           buffer: { type: "storage" } 
         },
         {
-          binding: 5,// @binding(5) - bvhNodesBuffer
+          binding: 6,// @binding(6) - bvhNodesBuffer
           visibility: GPUShaderStage.COMPUTE,
           buffer: {
               type: "read-only-storage",
@@ -507,7 +522,7 @@ export class Renderer {
           }
         },
         {
-          binding: 6,// @binding(6) - boxDepthTexture
+          binding: 7,// @binding(7) - boxDepthTexture
           visibility: GPUShaderStage.COMPUTE,
           storageTexture: {
             access: "write-only",
@@ -536,24 +551,28 @@ export class Renderer {
         },
         {
           binding: 3, // @binding(3)
+          resource: this.trianglesBuffer,
+        },
+        {
+          binding: 4, // @binding(4)
           resource: {
               buffer: this.renderDataBuffer 
           }
         },
         {
-          binding: 4, // @binding(4)
+          binding: 5, // @binding(5)
           resource: {
               buffer: this.accumulationBuffer 
           }
         },
         {
-          binding: 5,
+          binding: 6, // @binding(6)
           resource: {
               buffer: this.bvhNodesBuffer,
           }
         },
         {
-          binding: 6,
+          binding: 7,// @binding(7)
           resource: this.boxDepthTexture,
         },
       ],
@@ -742,27 +761,27 @@ export class Renderer {
     // const radiusOffset = 3 * 4; // 12
     // const colorOffset = 4 * 4; // 16
     // const stride = 4 * 8; // 32
-    this.sceneDataLength = 4*4 + sphereStructSizeBytes * this.scene.spheres.length;
+    this.sphereDataLength = 4*4 + sphereStructSizeBytes * this.scene.spheres.length;
     if (isInit == true) {
-      this.sceneData = new ArrayBuffer(
-        this.sceneDataLength
+      this.sphereData = new ArrayBuffer(
+        this.sphereDataLength
       );
     }
     
     // need to recreate the spheres buffer if new ones are added or removed
-    if (this.sceneData.byteLength !== this.sceneDataLength) {
-      this.sceneData = new ArrayBuffer(this.sceneDataLength);
+    if (this.sphereData.byteLength !== this.sphereDataLength) {
+      this.sphereData = new ArrayBuffer(this.sphereDataLength);
       // Recreate this.spheresBuffer 
       this.spheresBuffer.destroy();
       this.spheresBuffer = this.device.createBuffer({
-          size: this.sceneDataLength,
+          size: this.sphereDataLength,
           usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
       });
       this.updateBindGroups = true;
       // this.configureBindGroups();
     }
-    const sphereDataAsF32: Float32Array = new Float32Array(this.sceneData);
-    const sphereDataAsU32: Uint32Array = new Uint32Array(this.sceneData);
+    const sphereDataAsF32: Float32Array = new Float32Array(this.sphereData);
+    const sphereDataAsU32: Uint32Array = new Uint32Array(this.sphereData);
     const numSpheres: Uint32Array = new Uint32Array(1);
     sphereDataAsF32[0] = this.scene.skyColor[0];
     sphereDataAsF32[1] = this.scene.skyColor[1];
@@ -772,19 +791,20 @@ export class Renderer {
     sphereDataAsU32[3] = numSpheres[0];
     for (let i = 0; i < this.scene.spheres.length; i++) {
       const offset = 4 + i * entryLength;
-      sphereDataAsF32[offset + 0] = this.scene.spheres[i].position[0];
-      sphereDataAsF32[offset + 1] = this.scene.spheres[i].position[1];
-      sphereDataAsF32[offset + 2] = this.scene.spheres[i].position[2];
-      sphereDataAsF32[offset + 3] = this.scene.spheres[i].radius;
+      const sphere = this.scene.spheres[i] as Sphere;
+      sphereDataAsF32[offset + 0] = sphere.position[0];
+      sphereDataAsF32[offset + 1] = sphere.position[1];
+      sphereDataAsF32[offset + 2] = sphere.position[2];
+      sphereDataAsF32[offset + 3] = sphere.radius;
 
-      sphereDataAsF32[offset + 4] = this.scene.spheres[i].color[0];
-      sphereDataAsF32[offset + 5] = this.scene.spheres[i].color[1];
-      sphereDataAsF32[offset + 6] = this.scene.spheres[i].color[2];
-      sphereDataAsF32[offset + 7] = this.scene.spheres[i].material;
+      sphereDataAsF32[offset + 4] = sphere.color[0];
+      sphereDataAsF32[offset + 5] = sphere.color[1];
+      sphereDataAsF32[offset + 6] = sphere.color[2];
+      sphereDataAsF32[offset + 7] = sphere.material;
 
-      sphereDataAsF32[offset + 8] = this.scene.spheres[i].fuzziness;
-      sphereDataAsF32[offset + 9] = this.scene.spheres[i].reflectivity;
-      sphereDataAsF32[offset + 10] = this.scene.spheres[i].refractivity;
+      sphereDataAsF32[offset + 8] = sphere.fuzziness;
+      sphereDataAsF32[offset + 9] = sphere.reflectivity;
+      sphereDataAsF32[offset + 10] = sphere.refractivity;
 
 
     }
@@ -792,9 +812,72 @@ export class Renderer {
     // console.log("this.scene.skyColor", this.scene.skyColor)
 
     this.device.queue.writeBuffer(this.spheresBuffer, 0,
-      this.sceneData,
+      this.sphereData,
       0,
-      this.sceneData.byteLength
+      this.sphereData.byteLength
+    );
+  }
+
+  private writeTrianglesBuffer(isInit: boolean) {
+    const triangleStructBytes = // 80
+      16 +
+      16 +
+      16 +
+      16 +
+      16;
+    const entryLength = triangleStructBytes / 4; //20
+    this.triangleDataLength = 4*4 + triangleStructBytes * this.scene.triangles.length;
+    if (isInit == true) {
+      this.triangleData = new ArrayBuffer(
+        this.triangleDataLength
+      );
+    }
+    const triangleDataAsF32: Float32Array = new Float32Array(this.triangleData );
+    const triangleDataAsU32: Uint32Array = new Uint32Array(this.triangleData );
+    const numTriangles: Uint32Array = new Uint32Array(1);
+    numTriangles[0] = this.scene.triangles.length;
+    triangleDataAsU32[0] = numTriangles[0];
+    for (let i = 0; i < this.scene.triangles.length; i++) {
+      const offset = 4 + i * entryLength;
+      const triangle = this.scene.triangles[i] as Triangle;
+      triangleDataAsF32[offset + 0] = triangle.v0[0];
+      triangleDataAsF32[offset + 1] = triangle.v0[1];
+      triangleDataAsF32[offset + 2] = triangle.v0[2];
+      triangleDataAsF32[offset + 3] = triangle.reflectivity;
+
+      triangleDataAsF32[offset + 4] = triangle.v1[0];
+      triangleDataAsF32[offset + 5] = triangle.v1[1];
+      triangleDataAsF32[offset + 6] = triangle.v1[2];
+      triangleDataAsF32[offset + 7] = triangle.refractivity;
+
+
+      triangleDataAsF32[offset + 8] = triangle.v2[0];
+      triangleDataAsF32[offset + 9] = triangle.v2[1];
+      triangleDataAsF32[offset + 10] = triangle.v2[2];
+      triangleDataAsF32[offset + 11] = triangle.material;
+
+
+      triangleDataAsF32[offset + 12] = triangle.color[0];
+      triangleDataAsF32[offset + 13] = triangle.color[1];
+      triangleDataAsF32[offset + 14] = triangle.color[2];
+      triangleDataAsF32[offset + 15] = 0.0;
+
+
+      triangleDataAsF32[offset + 16] = triangle.normal[0];
+      triangleDataAsF32[offset + 17] = triangle.normal[1];
+      triangleDataAsF32[offset + 18] = triangle.normal[2];
+      triangleDataAsF32[offset + 19] = 0.0;
+      // triangleDataAsF32[offset + 8] = triangle.fuzziness;
+      // triangleDataAsF32[offset + 9] = triangle.reflectivity;
+      // triangleDataAsF32[offset + 10] = triangle.refractivity;
+
+
+    }
+   
+    this.device.queue.writeBuffer(this.trianglesBuffer, 0,
+      this.triangleData,
+      0,
+      this.triangleData.byteLength
     );
   }
 
@@ -874,6 +957,7 @@ export class Renderer {
     // these functions may resize the spheresBuffer and/or BVHNodeBuffer
     // that would require reconfiguring the bind group
     this.writeSpheresBuffer(isInit);
+    this.writeTrianglesBuffer(isInit);
     this.writeBVHNodesBuffer();
 
     if (this.updateBindGroups == true) {
@@ -959,7 +1043,13 @@ export class Renderer {
     // cooresponds to @binding(2) in compute Shader
     this.spheresBuffer = this.device.createBuffer({
       label: 'spheresBuffer',
-      size: this.sceneDataLength,
+      size: this.sphereDataLength,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+
+    this.trianglesBuffer = this.device.createBuffer({
+      label: 'trianglesBuffer',
+      size: this.triangleDataLength,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
 
@@ -1042,8 +1132,15 @@ export class Renderer {
     4     + // material
     4     +  // roughness
     12;        //padding
-    this.sceneDataLength = 4*4 + sphereStructSizeBytes * this.scene.spheres.length;
-
+    this.sphereDataLength = 4*4 + sphereStructSizeBytes * this.scene.spheres.length;
+    
+    const triangleStructBytes = // 80
+    16 +
+    16 +
+    16 +
+    16 +
+    16;
+  this.triangleDataLength = 4*4 + triangleStructBytes * this.scene.triangles.length;
   }
 
   /*

@@ -14,13 +14,18 @@ export class aabb {
     return new aabb(Interval.noArg(), Interval.noArg(), Interval.noArg());
   }
 
-  static fromVec3(a: Float32Array, b: Float32Array) {
-    const x = (a[0] <= b[0]) ?
-      new Interval(a[0], b[0]) : new Interval(b[0], a[0]);
-    const y = (a[1] <= b[1]) ?
-      new Interval(a[1], b[1]) : new Interval(b[1], a[1]);
-    const z = (a[2] <= b[2]) ?
-      new Interval(a[2], b[2]) : new Interval(b[2], a[2]);
+  /*
+    Equivalent to fromAABB but for vectors.
+    Each axis's interval is expanded to encompas the interval for both
+    vec1 and vec2 along that axis.
+  */
+  static fromVec3f(vec1: Float32Array, vec2: Float32Array) {
+    const x = (vec1[0] <= vec2[0]) ?
+      new Interval(vec1[0], vec2[0]) : new Interval(vec2[0], vec1[0]);
+    const y = (vec1[1] <= vec2[1]) ?
+      new Interval(vec1[1], vec2[1]) : new Interval(vec2[1], vec1[1]);
+    const z = (vec1[2] <= vec2[2]) ?
+      new Interval(vec1[2], vec2[2]) : new Interval(vec2[2], vec1[2]);
     return new aabb(x, y, z);
   }
 

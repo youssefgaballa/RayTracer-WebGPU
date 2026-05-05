@@ -3,15 +3,17 @@ import { Sphere } from "./sphere";
 import { debug } from "./main";
 import  { BVHNodeObject, BVHNode } from "./BVH/bvhnode";
 import { Renderer } from "./renderer";
+import  { Triangle } from "./triangle";
 
 const debug1 = true;
 export class Scene {
   spheres: Sphere[];
+  triangles: Triangle[];
   numSpheres!: number;
   sphereCount!: number
   camera: Camera;
 
-  sphereIndices!: number[]
+  objectIndeces!: number[]
   bvhNodes!: BVHNode[];
   bvhNodeObject!: BVHNodeObject | undefined;
   static bvhMaxDepth: number = 0;
@@ -39,8 +41,10 @@ export class Scene {
   static updatedScene: boolean;
   constructor() {
     this.spheres = new Array(); // empty
-    this.camera = new Camera([1.0, 4.0, -20.0]);
-    this.sphereIndices = [];
+    this.triangles = new Array(); // empty
+
+    this.camera = new Camera([1.0, 5.0, -10.0]);
+    this.objectIndeces = [];
     this.registerInputListeners();
     
     this.buildScene();
@@ -59,6 +63,8 @@ export class Scene {
 
     if (debug && debug1) {
       console.log("scene.spheres: ", this.spheres);
+      console.log("scene.triangles: ", this.triangles);
+
       console.log("scene.bvhnodes: ", this.bvhNodes);
       console.log("scene.bvhNodeObject: ", this.bvhNodeObject);
       console.log("Scene.bvhMaxDepth: ", Scene.bvhMaxDepth);
@@ -69,7 +75,8 @@ export class Scene {
 
   public buildScene() {
     this.spheres = [];
-    this.sphereIndices = [];
+    this.triangles = [];
+    this.objectIndeces = [];
     this.bvhNodes = [];
     if (this.scene === 1){
       this.createScene1();
@@ -149,7 +156,7 @@ export class Scene {
   public createRandomSpheres(num: number) {
     let i = 0;
     for (let j = 0; j < num; j++) {
-      this.addObject(new Sphere(
+      this.addSphere(new Sphere(
         [
           -10.0 + 20.0 * Math.random(), // Range: [-10.0, 10.0)
           0.0 + 10.0 * Math.random(), // Range: [0.0, 10.0)
@@ -176,64 +183,77 @@ export class Scene {
     const radius = 0.5
     let i = 0;
     const bigR = 2000
-    this.addObject(new Sphere(
-      [0.0, -bigR, 0.0], bigR, [0.0, 0.7, 0.3],// floor - 0
-      0, // matte
-      1.0, 
-      0.0,
-      1.0 // index of refraction
-    ), i++) 
-    .addObject(new Sphere(
-      [5.0, 3.0, 0.0], 3, [1.0, 1.0, 0.0],//1: yellow
+    const halfW = 200;
+    const p1 = [-halfW, 0, -halfW];
+    const p2 = [ halfW, 0, -halfW];
+    const p3 = [ halfW, 0,  halfW];
+    const p4 = [-halfW, 0,  halfW];
+    this
+    .addTriangle(new Triangle(p1, p3, p2,    [0.2, 0.8, 0.2], 0, 0, 0, 1), i++
+    )
+    .addTriangle(new Triangle(p3, p1, p4, [0.2, 0.8, 0.2], 0, 0, 0, 1), i++)
+    // .addObject(new Sphere(
+    //   [0.0, -bigR, 0.0], bigR, [0.0, 0.7, 0.3],// floor - 0
+    //   0, // matte
+    //   1.0, 
+    //   0.0,
+    //   1.0 // index of refraction
+    // ), i++) 
+    .addSphere(new Sphere(
+      [5.0, 3.0, 0.0], 3, [1.0, 1.0, 0.0],//2: yellow
       1 ,// metallic
        0.0,
        1.0,
        1.0 // index of refraction
     ), i++) 
-    .addObject(new Sphere(
-      [-5.0, 1.9, -12], 1.0, [1.0, 0.2, 0.0],//2: orange
+    .addSphere(new Sphere(
+      [-5.0, 1.9, -12], 1.0, [1.0, 0.2, 0.0],//3: orange
       1, // metallic
       0.2,
       0.5,
       1.0 // index of refraction
     ), i++)
-    .addObject(new Sphere(
-      [0.0, 6.3, -11.0], radius, [0.0, 1.0, 0.0],//3:  green
+    .addSphere(new Sphere(
+      [0.0, 6.3, -11.0], radius, [0.0, 1.0, 0.0],//4:  green
       0, // refractive
       1.0,
       0.0,
       1.0  // index of refraction
     ), i++)
-    .addObject(new Sphere(
-      [0.0, 2.3, -10.0], radius, [0.0, 0.0, 1.0],// 4: blue
+    .addSphere(new Sphere(
+      [0.0, 2.3, -10.0], radius, [0.0, 0.0, 1.0],// 5: blue
       0, // matte
       1.0,
       0.0,
       1.0 // index of refraction
     ), i++)
-    .addObject(new Sphere(
-      [-2.0, 4.3, -10.0], radius, [1.0, 0.0, 1.0],// 5: magenta
+    .addSphere(new Sphere(
+      [-2.0, 4.3, -10.0], radius, [1.0, 0.0, 1.0],// 6: magenta
       0, // matte
       1.0,
       0.0,
       1.0 // index of refraction 
     ), i++)
-    .addObject(new Sphere(
-      [-2.0, 4.3, 0.0], 3, [1.0, 1.0, 0.0],// 6: yellow
+    .addSphere(new Sphere(
+      [-2.0, 4.3, 0.0], 3, [1.0, 1.0, 0.0],// 7: yellow
       2, // refractive
       0.0,
       1.0,
       1.0 // index of refraction  
     ), i++);
     this.createUI();
-
+    this.debug()
   }
-  public addObject(obj: Sphere, idx: number) {
+  public addSphere(obj: Sphere, idx: number) {
     this.spheres.push(obj);
-    this.sphereIndices.push(idx);
+    this.objectIndeces.push(idx);
     return this;
   }
-  
+  public addTriangle(obj: Triangle, idx: number) {
+    this.triangles.push(obj);
+    this.objectIndeces.push(idx);
+    return this;
+  }
   buildBVH() {
     // if (debug){
     //   console.log("sphereIndices",this.sphereIndices )
@@ -242,10 +262,15 @@ export class Scene {
     // }
     this.bvhNodes = [];
     this.bvhNodeObject =  {} as BVHNodeObject;
+    const objects = [...this.triangles, ...this.spheres];
+    console.log("objects", objects);
+    this.bvhNodeObject = new BVHNodeObject(objects as (Sphere | Triangle)[], this.objectIndeces, 
+    0, objects.length, 0);
+    // console.log("bvhNodeObject1", this.bvhNodeObject);
 
-    this.bvhNodeObject = new BVHNodeObject(this.spheres, this.sphereIndices, 0, 
-    this.spheres.length, 0);
- 
+    // this.bvhNodeObject = new BVHNodeObject(this.spheres as Sphere[], this.objectIndeces, 
+    // 0, this.spheres.length, 0);
+
     this.rebuildBVH();
     
   }
@@ -268,10 +293,109 @@ export class Scene {
     const h3 =  document.createElement("h3");
     h3.textContent = "Object Controls: ";
     this.objectControls.appendChild(h3);
-    this.spheres.forEach((sphere: Sphere, idx: number) => {
-      if (idx >= 12) return;
-      if (idx == 0) return;
+    this.triangles.forEach((obj: Triangle, idx: number) => {
+      const triDetails = document.createElement("details");
+      const triSummary = document.createElement("summary");
+      if (idx == 0) {
+        triSummary.textContent = `Quad ${idx}`;
 
+      } else if (idx == 1) {
+        return;
+      }
+      triDetails.appendChild(triSummary);
+      
+      const ul = document.createElement("ul");
+      const createControls = () => {
+
+        createControl("Width", 0.1, 1000, 0.1);
+        createControl("Color");
+
+        createControl("Reset");
+      }
+
+      const createControl = (label: 'Width' | 'Color' | 'Reset', 
+        min?: number, max?: number, step?: number) => {
+
+        const li = document.createElement("li");
+        li.textContent = `${label}`
+        if (label == 'Reset') {
+          const resetButton = document.createElement("button");
+          resetButton.textContent = "Reset";
+          resetButton.addEventListener("click", () => {
+            // Reset properties
+            obj.color.set(obj.initialProperties.color); 
+            obj.material = obj.initialProperties.material;
+            obj.reflectivity = obj.initialProperties.reflectivity;
+            obj.normal = obj.initialProperties.normal;
+            obj.refractivity = obj.initialProperties.refractivity;
+            obj.fuzziness = obj.initialProperties.fuzziness;
+            obj.increaseWidth(obj.initialProperties.width);
+
+            // update bbox
+            Renderer.frameCount = 1;
+            Scene.updatedScene = true;
+            
+            // Re-sync the the ui
+            ul.innerHTML = '';
+            createControls();
+          });
+          li.appendChild(resetButton);
+          
+        } else if (label == 'Width'){
+          const widthSlider = document.createElement("input");
+
+          widthSlider.type = "range";
+          if (min == undefined || max == undefined || step == undefined) return;
+          widthSlider.min = min.toString();
+          widthSlider.max = max.toString();
+          widthSlider.step = step.toString();
+          widthSlider.value = obj.width.toString();
+
+          const widthLabel = document.createElement("span");
+          widthLabel.textContent = widthSlider.value;
+
+          widthSlider.addEventListener("input", (event: InputEvent) => {
+            const newWidth = parseFloat((event.target as HTMLInputElement).value);
+            widthLabel.textContent = newWidth.toString();
+            obj.increaseWidth(newWidth);
+            this.triangles[1].increaseWidth(newWidth)
+            Renderer.frameCount = 1;
+
+            Scene.updatedScene = true; 
+          });
+          li.appendChild(widthSlider);
+          li.appendChild(widthLabel);
+
+        } else if (label == 'Color') {
+          const colorPicker = document.createElement("input");
+          colorPicker.type = "color";
+          
+          // convert wgsl color Float32Array (each has element values from 0.0 to 1.0) to hexadecmial
+          colorPicker.value = 
+          `#${this.wgslColorToHex(obj.color[0])}${this.wgslColorToHex(obj.color[1])}${this.wgslColorToHex(obj.color[2])}`;
+
+          colorPicker.addEventListener("input", (e) => {
+            const hex = (e.target as HTMLInputElement).value;
+            obj.color[0] = parseInt(hex.slice(1, 3), 16) / 255;
+            obj.color[1] = parseInt(hex.slice(3, 5), 16) / 255;
+            obj.color[2] = parseInt(hex.slice(5, 7), 16) / 255;
+            Renderer.frameCount = 1;
+            Scene.updatedScene = true; // causese writeBuffersto run
+          });
+          li.appendChild(colorPicker);
+        }
+        ul.appendChild(li);
+
+
+      }
+      createControls();
+      triDetails.appendChild(ul);
+      this.objectControls.appendChild(triDetails);
+  });
+    this.spheres.forEach((obj: Sphere, idx: number) => {
+      if (idx >= 12) return;
+      // if (idx == 0) return;
+      if (!(obj instanceof Sphere)) return
       const sphereDetails = document.createElement("details");
       const sphereSummary = document.createElement("summary");
       sphereSummary.textContent = `Sphere ${idx}`;
@@ -297,6 +421,8 @@ export class Scene {
 
         createControl("Reset");
       }
+    
+
       const createControl = (label: 'X' | 'Y' | 'Z' | 'Radius' | 'Color' | 'Material' 
         | 'Fuzziness' | 'Reflectance'
         | 'Refractance'| 'Reset', 
@@ -309,11 +435,11 @@ export class Scene {
           resetButton.textContent = "Reset";
           resetButton.addEventListener("click", () => {
             // Reset properties
-            sphere.position.set(sphere.initialProperties.position);
-            sphere.radius = sphere.initialProperties.radius;
-            sphere.color.set(sphere.initialProperties.color); 
-            sphere.material = sphere.initialProperties.material;
-            sphere.fuzziness = sphere.initialProperties.fuzziness;
+            obj.position.set(obj.initialProperties.position);
+            obj.radius = obj.initialProperties.radius;
+            obj.color.set(obj.initialProperties.color); 
+            obj.material = obj.initialProperties.material;
+            obj.fuzziness = obj.initialProperties.fuzziness;
 
             // update bbox
             Renderer.frameCount = 1;
@@ -331,7 +457,7 @@ export class Scene {
           radiusSlider.min = min.toString();
           radiusSlider.max = max.toString();
           radiusSlider.step = step.toString();
-          radiusSlider.value = sphere.radius.toString();
+          radiusSlider.value = obj.radius.toString();
 
           const radiusLabel = document.createElement("span");
           radiusLabel.textContent = radiusSlider.value;
@@ -339,7 +465,7 @@ export class Scene {
           radiusSlider.addEventListener("input", (event: InputEvent) => {
             const newR = parseFloat((event.target as HTMLInputElement).value);
             radiusLabel.textContent = newR.toString();
-            sphere.radius = newR;
+            obj.radius = newR;
             Renderer.frameCount = 1;
 
             Scene.updatedScene = true; 
@@ -352,13 +478,13 @@ export class Scene {
           
           // convert wgsl color Float32Array (each has element values from 0.0 to 1.0) to hexadecmial
           colorPicker.value = 
-          `#${this.wgslColorToHex(sphere.color[0])}${this.wgslColorToHex(sphere.color[1])}${this.wgslColorToHex(sphere.color[2])}`;
+          `#${this.wgslColorToHex(obj.color[0])}${this.wgslColorToHex(obj.color[1])}${this.wgslColorToHex(obj.color[2])}`;
 
           colorPicker.addEventListener("input", (e) => {
             const hex = (e.target as HTMLInputElement).value;
-            sphere.color[0] = parseInt(hex.slice(1, 3), 16) / 255;
-            sphere.color[1] = parseInt(hex.slice(3, 5), 16) / 255;
-            sphere.color[2] = parseInt(hex.slice(5, 7), 16) / 255;
+            obj.color[0] = parseInt(hex.slice(1, 3), 16) / 255;
+            obj.color[1] = parseInt(hex.slice(3, 5), 16) / 255;
+            obj.color[2] = parseInt(hex.slice(5, 7), 16) / 255;
             Renderer.frameCount = 1;
             Scene.updatedScene = true; // causese writeBuffersto run
           });
@@ -370,12 +496,12 @@ export class Scene {
             const option = document.createElement("option");
             option.value = value.toString();
             option.textContent = name;
-            if (sphere.material === value) option.selected = true;
+            if (obj.material === value) option.selected = true;
             select.appendChild(option);
           });
 
           select.addEventListener("change", (e) => {
-            sphere.material = parseInt((e.target as HTMLSelectElement).value);
+            obj.material = parseInt((e.target as HTMLSelectElement).value);
             Renderer.frameCount = 1;
             Scene.updatedScene = true;
           });
@@ -387,7 +513,7 @@ export class Scene {
           roughnessSlider.min = min.toString();
           roughnessSlider.max = max.toString();
           roughnessSlider.step = step.toString();
-          roughnessSlider.value = sphere.fuzziness.toString();
+          roughnessSlider.value = obj.fuzziness.toString();
 
           const roughnessLabel = document.createElement("span");
           roughnessLabel.textContent = roughnessSlider.value;
@@ -395,7 +521,7 @@ export class Scene {
           roughnessSlider.addEventListener("input", (e) => {
             const val = parseFloat((e.target as HTMLInputElement).value);
             roughnessLabel.textContent = val.toString();
-            sphere.fuzziness = val;
+            obj.fuzziness = val;
             Renderer.frameCount = 1;
             Scene.updatedScene = true;
           });
@@ -408,7 +534,7 @@ export class Scene {
           reflectivitySlider.min = min.toString();
           reflectivitySlider.max = max.toString();
           reflectivitySlider.step = step.toString();
-          reflectivitySlider.value = sphere.reflectivity.toString();
+          reflectivitySlider.value = obj.reflectivity.toString();
 
           const reflectivityLabel = document.createElement("span");
           reflectivityLabel.textContent = reflectivitySlider.value;
@@ -416,7 +542,7 @@ export class Scene {
           reflectivitySlider.addEventListener("input", (e) => {
             const val = parseFloat((e.target as HTMLInputElement).value);
             reflectivityLabel.textContent = val.toString();
-            sphere.reflectivity = val;
+            obj.reflectivity = val;
             Renderer.frameCount = 1;
             Scene.updatedScene = true;
           });
@@ -429,7 +555,7 @@ export class Scene {
           refractivitySlider.min = min.toString();
           refractivitySlider.max = max.toString();
           refractivitySlider.step = step.toString();
-          refractivitySlider.value = sphere.refractivity.toString();
+          refractivitySlider.value = obj.refractivity.toString();
 
           const refractivityLabel = document.createElement("span");
           refractivityLabel.textContent = refractivitySlider.value;
@@ -437,7 +563,7 @@ export class Scene {
           refractivitySlider.addEventListener("input", (e) => {
             const val = parseFloat((e.target as HTMLInputElement).value);
             refractivityLabel.textContent = val.toString();
-            sphere.refractivity = val;
+            obj.refractivity = val;
             Renderer.frameCount = 1;
             Scene.updatedScene = true;
           });
@@ -454,7 +580,7 @@ export class Scene {
           posSlider.step = step.toString();
           
           
-          posSlider.value = sphere.position[map[label]].toString();
+          posSlider.value = obj.position[map[label]].toString();
 
           const posLabel = document.createElement("span");
           posLabel.textContent = posSlider.value;
@@ -463,7 +589,7 @@ export class Scene {
             const newPos = parseFloat((e.target as HTMLInputElement).value);
             posLabel.textContent = newPos.toString();
 
-            sphere.position[map[label]] = newPos;            
+            obj.position[map[label]] = newPos;            
             Renderer.frameCount = 1;
 
             Scene.updatedScene = true; 
