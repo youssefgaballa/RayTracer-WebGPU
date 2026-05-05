@@ -15,6 +15,17 @@ struct SceneData { // 16 + sizeof(spheres) bytes
   spheres: array<Sphere>,
 }
 
+struct Triangle {
+    v0: vec3f,
+    color: vec3f,
+    v1: vec3f,
+    material: f32,
+    v2: vec3f,
+    reflectivity: f32,
+    normal: vec3f,    // Precomputed normal
+    refractivity: f32,
+};
+
 struct Ray {
   direction: vec3<f32>,
   origin: vec3<f32>,
@@ -239,7 +250,7 @@ fn rayColor(ray: Ray, seed: ptr<function, u32>) -> HitRecord {
         firstHitCaptured = true;
       }
       var scatterDirection: vec3<f32>;
-     
+
       if (hitRecord.material == 0) {  // matte
         
         if (renderData.diffuseType == 0) {// simple diffuse - matte
@@ -250,8 +261,7 @@ fn rayColor(ray: Ray, seed: ptr<function, u32>) -> HitRecord {
         throughput *= hitRecord.color * 0.5;
 
       } else if (hitRecord.material == 1) { // metallic
-        // let reflectDir = currentRay.direction 
-        //   - dot(currentRay.direction, hitRecord.normal) * hitRecord.normal;
+        // reflectDir: currentRay.direction  - dot(currentRay.direction, hitRecord.normal) * hitRecord.normal;
         let diffuseDir = normalize(hitRecord.normal + random_unit_vector(seed));
         let reflectDir = normalize(reflect(currentRay.direction, hitRecord.normal) 
         + hitRecord.fuzz * random_on_hemisphere(hitRecord.normal, seed));
@@ -271,12 +281,19 @@ fn rayColor(ray: Ray, seed: ptr<function, u32>) -> HitRecord {
           going into the sphere, so the ray is outward.
           Otherwise the ray is inside the sphere
         */
-        let isRayInAir: bool = select(
-          true, 
-          false,  
-          dot(currentRay.direction, hitRecord.normal) < 0.0
+        let isEnteringMaterial: bool =  dot(currentRay.direction, hitRecord.normal) < 0.0;
+        
+        let normal = select(
+          hitRecord.normal,
+          -hitRecord.normal,        
+          isEnteringMaterial
         );
 
+        // let normal = select(
+        //   -hitRecord.normal,
+        //   hitRecord.normal,        
+        //   isEnteringMaterial
+        // );
         let airReflectivity = 1.0; // Note: the index of refraction of air is 1.0
 
         /*
@@ -295,15 +312,43 @@ fn rayColor(ray: Ray, seed: ptr<function, u32>) -> HitRecord {
         let ri: f32 = select(
           airReflectivity / hitRecord.refractivity, 
           hitRecord.refractivity / airReflectivity,  
-          isRayInAir
+          isEnteringMaterial
         );
-        let refractDirection = refract(
-          normalize(currentRay.direction),
-          hitRecord.normal,
-          ri
-        );
-        scatterDirection = refractDirection;
-        throughput *= 0.5*hitRecord.color;
+        let c = min(dot(-currentRay.direction, hitRecord.normal), 1.0);
+        let s = sqrt(1.0 -  c * c);
+        let cannotRefract: bool = ri * s > 1.0;
+        var direction: vec3<f32>;
+        
+        if (cannotRefract || reflectance(c, ri) > random_float(seed)) {
+          let diffuseDir = normalize(hitRecord.normal + random_unit_vector(seed));
+          let reflectDir = normalize(reflect(currentRay.direction, hitRecord.normal) 
+            + hitRecord.fuzz * random_on_hemisphere(hitRecord.normal, seed));
+        
+          // scatterDirection = mix(diffuseDir, reflectDir, hitRecord.reflectivity);
+
+          // scatterDirection = reflect(
+          //   currentRay.direction,
+          //   hitRecord.normal,
+          // );
+          scatterDirection = reflect(currentRay.direction, normal);
+          
+          // throughput *= skyColor * mix(0.0, 1.0, hitRecord.reflectivity)
+          //   + hitRecord.color * mix(1.0, 0.0, hitRecord.reflectivity);
+          throughput *= vec3f(1.0,1.0,1.0);
+          // throughput *= 0.5 * hitRecord.color;
+        } else {
+          scatterDirection = refract(
+            currentRay.direction,
+            normal,
+            ri
+          );
+          // throughput *= 0.5*hitRecord.color;
+          // throughput *= skyColor * mix(0.0, 1.0, hitRecord.reflectivity)
+          //   + hitRecord.color * mix(1.0, 0.0, hitRecord.refractivity);
+          throughput *= vec3f(1.0,1.0,1.0);
+
+        }
+        
       }
       currentRay.origin = hitRecord.position; // + (hitRecord.normal * 0.001);
       currentRay.direction = normalize(scatterDirection);
@@ -321,6 +366,12 @@ fn rayColor(ray: Ray, seed: ptr<function, u32>) -> HitRecord {
   resultHitRecord.color = resultingColor;
 
   return resultHitRecord;
+}
+fn reflectance(c: f32, ref_idx: f32) -> f32 {
+    // Schlick's approximation for reflectance.
+    var r0 = (1.0 - ref_idx) / (1.0 + ref_idx);
+    r0 = r0 * r0;
+    return r0 + (1.0 - r0) * pow((1.0 - c), 5.0);
 }
 fn hit(ray: Ray, sphere: Sphere, tMin: f32, tMax: f32, 
   outHitRecord: ptr<function, HitRecord>) -> bool  {

@@ -293,7 +293,7 @@ export class Scene {
         createControl("Material");
         createControl("Fuzziness", 0.0, 1.0, 0.01);
         createControl("Reflectance", 0.0, 1.0, 0.01);
-        createControl("Refractance", 0.0, 1.0, 0.01);
+        createControl("Refractance", 0.1, 3.0, 0.01);
 
         createControl("Reset");
       }
@@ -365,7 +365,7 @@ export class Scene {
           li.appendChild(colorPicker);
         } else if (label === "Material") {
           const select = document.createElement("select");
-          const materials = ["Matte", "Metallic", "Dielectric", "Emissive"];
+          const materials = ["Matte", "Metallic", "Reflective", "Emissive"];
           materials.forEach((name, value) => {
             const option = document.createElement("option");
             option.value = value.toString();
