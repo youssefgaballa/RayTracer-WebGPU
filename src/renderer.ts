@@ -60,8 +60,7 @@ export class Renderer {
   static toggleBVH = 0;
   private toggleBVHBtn: HTMLButtonElement 
     = document.getElementById("toggleBVH-btn") as HTMLButtonElement;
-    private toggleStacklessBVHBtn: HTMLButtonElement 
-    = document.getElementById("toggleStacklessBVH-btn") as HTMLButtonElement;
+
 
   private showBVHBoxes = 0;
   private toggleShowBVHBoxesBtn: HTMLButtonElement 
@@ -140,7 +139,6 @@ export class Renderer {
       || this.toggleHasGammaCorrectionBtn == null
       || this.toggleEnableScatteringBtn == null
       || this.toggleBVHBtn == null
-      || this.toggleStacklessBVHBtn == null
       || this.toggleShowBVHBoxesBtn == null
       || this.toggleHideRootBVHBoxBtn == null
       || this.toggleDepthTestBVHBtn == null
@@ -162,11 +160,7 @@ export class Renderer {
     this.enableScattering 
     = this.toggleEnableScatteringBtn.classList.contains("active") ? 1 : 0;
 
-    Renderer.toggleBVH 
-    = this.toggleBVHBtn.classList.contains("active") ? 
-    (this.toggleStacklessBVHBtn.classList.contains("active") ? 2 : 1) : 
-    0;
-
+  
     this.showBVHBoxes 
     = this.toggleShowBVHBoxesBtn.classList.contains("active") ? 1 : 0;
     
@@ -217,8 +211,7 @@ export class Renderer {
 
       this.toggleBVHBtn?.classList.toggle('active');
       Renderer.toggleBVH 
-        = this.toggleBVHBtn.classList.contains("active") ? 
-        (this.toggleStacklessBVHBtn.classList.contains("active") ? 2 : 1) : 
+        = this.toggleBVHBtn.classList.contains("active") ? 1 :0;
         0;
         if (this.toggleBVHBtn.classList.contains("active")) {
           this.scene.rebuildBVH();
@@ -226,21 +219,7 @@ export class Renderer {
         }
       // this.toggleBVH = this.toggleBVH == 0 ? 1: 0;
     });
-    this.toggleStacklessBVHBtn.addEventListener('click', (event: MouseEvent) => {
-      if (event.detail === 0) return; 
-
-      this.toggleStacklessBVHBtn?.classList.toggle('active');
-      Renderer.toggleBVH 
-        = this.toggleBVHBtn.classList.contains("active") ? 
-        (this.toggleStacklessBVHBtn.classList.contains("active") ? 2 : 1) : 
-        0;
-        if (this.toggleBVHBtn.classList.contains("active")) {
-          this.scene.rebuildBVH();
-          if (debug) console.log(this.scene.bvhNodes);
-
-        }
-      // this.toggleBVH = this.toggleBVH == 0 ? 1: 0;
-    });
+  
     this.toggleShowBVHBoxesBtn.addEventListener('click', (event: MouseEvent) => {
       if (event.detail === 0) return; 
 

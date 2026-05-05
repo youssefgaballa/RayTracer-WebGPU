@@ -461,59 +461,6 @@ fn hit_triangle(ray: Ray, tri: Triangle, t_min: f32, t_max: f32, outHitRecord: p
     }
     return false;
 }
-fn hitBVHStackless(ray: Ray, outHitRecord: ptr<function, HitRecord>) -> bool {
-  var i: u32 = 0u;
-  let nodeCount: u32 = arrayLength(&bvh.nodes);
-  let invD = 1.0 / ray.direction;
-
-  var closestT: f32 = 3.0e+38; 
-
-  var bvhHitRecord: HitRecord;
-  var leafHitRecord: HitRecord;
-  var hitAnything = false;
-
-  // clear previous  data
-  (*outHitRecord).hitAnything = false;
-
-  while (i < nodeCount) {
-    let node = bvh.nodes[i];
-    
-    // 1. Check AABB intersection
-    if (hitAABB(ray, invD, node.min, node.max, closestT, &bvhHitRecord)) {
-      
-      // HIT: Check if it's a leaf
-      if (node.objectIndex >= 0.0) {
-        let sphereIdx = u32(node.objectIndex);
-        
-        if (hit(ray, spheresData.spheres[sphereIdx], 0.001, closestT, &leafHitRecord)) { 
-          (*outHitRecord) = leafHitRecord;
-          // (*outHitRecord).hitAnything = true;
-          // (*outHitRecord).t = leafHitRecord.t;
-          // (*outHitRecord).position = leafHitRecord.position;
-          // (*outHitRecord).normal = leafHitRecord.normal;
-          closestT = leafHitRecord.t;
-          hitAnything = true;
-        }
-        
-        i++; 
-      } else {
-        // Internal Node: Step into the next sequential node (leftChild)
-        i++; 
-      }
-    } else {
-      // jump to the skipLink if ray misses
-      i = u32(node.skipLink);
-      
-      // skipLink is broken (0), prevent infinite loop
-      if (i == 0u && nodeCount > 0u) { break; }
-    }
-
-    // prevent infinite loop
-    if (i > 1000u) { break; }
-  }
-  
-  return hitAnything;
-}
 
 fn hitBVH(ray: Ray, outHitRecord: ptr<function, HitRecord>) -> bool { // 0.001, 10000
   (*outHitRecord).hitAnything = false;
@@ -573,12 +520,21 @@ fn hitBVH(ray: Ray, outHitRecord: ptr<function, HitRecord>) -> bool { // 0.001, 
       // stack[stackPtr] = u32(node.leftChild);
       if (stackPtr > 30) { break; }
     } else { // leaf node
-      let sphereIdx = u32(node.objectIndex);
-      if (hit(ray, spheresData.spheres[sphereIdx], 0.001, closestT, &leafHitRecord)) { 
+      let index = u32(node.objectIndex);
+      if (index == 0 || index == 1 ) {
+        if (hit_triangle(ray, trianglesData.triangles[index], 0.001, closestT, &leafHitRecord)) {
+          (*outHitRecord) = leafHitRecord;
+          closestT = leafHitRecord.t;
+
+        }
+      } else {
+        if (hit(ray, spheresData.spheres[index-2], 0.001, closestT, &leafHitRecord)) { 
         //if ray intersects spherex
         (*outHitRecord) = leafHitRecord;
         closestT = leafHitRecord.t;
       }
+      }
+      
     }
   }  
   // (*outHitRecord).color = vec3(f32(nodesTouched) / 10.0, 0.0, 0.0);
@@ -605,6 +561,59 @@ fn hitAABB(ray: Ray, invD: vec3<f32>, node_min: vec3<f32>, node_max: vec3<f32>,
       return true;
     }
     return false;
+}
+fn hitBVHStackless(ray: Ray, outHitRecord: ptr<function, HitRecord>) -> bool {
+  var i: u32 = 0u;
+  let nodeCount: u32 = arrayLength(&bvh.nodes);
+  let invD = 1.0 / ray.direction;
+
+  var closestT: f32 = 3.0e+38; 
+
+  var bvhHitRecord: HitRecord;
+  var leafHitRecord: HitRecord;
+  var hitAnything = false;
+
+  // clear previous  data
+  (*outHitRecord).hitAnything = false;
+
+  while (i < nodeCount) {
+    let node = bvh.nodes[i];
+    
+    // 1. Check AABB intersection
+    if (hitAABB(ray, invD, node.min, node.max, closestT, &bvhHitRecord)) {
+      
+      // HIT: Check if it's a leaf
+      if (node.objectIndex >= 0.0) {
+        let sphereIdx = u32(node.objectIndex);
+        
+        if (hit(ray, spheresData.spheres[sphereIdx], 0.001, closestT, &leafHitRecord)) { 
+          (*outHitRecord) = leafHitRecord;
+          // (*outHitRecord).hitAnything = true;
+          // (*outHitRecord).t = leafHitRecord.t;
+          // (*outHitRecord).position = leafHitRecord.position;
+          // (*outHitRecord).normal = leafHitRecord.normal;
+          closestT = leafHitRecord.t;
+          hitAnything = true;
+        }
+        
+        i++; 
+      } else {
+        // Internal Node: Step into the next sequential node (leftChild)
+        i++; 
+      }
+    } else {
+      // jump to the skipLink if ray misses
+      i = u32(node.skipLink);
+      
+      // skipLink is broken (0), prevent infinite loop
+      if (i == 0u && nodeCount > 0u) { break; }
+    }
+
+    // prevent infinite loop
+    if (i > 1000u) { break; }
+  }
+  
+  return hitAnything;
 }
 
 

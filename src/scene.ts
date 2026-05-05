@@ -43,7 +43,7 @@ export class Scene {
     this.spheres = new Array(); // empty
     this.triangles = new Array(); // empty
 
-    this.camera = new Camera([1.0, 5.0, -10.0]);
+    this.camera = new Camera([1.0, 5.0, -18.0]);
     this.objectIndeces = [];
     this.registerInputListeners();
     
