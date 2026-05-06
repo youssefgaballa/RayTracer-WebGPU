@@ -585,7 +585,6 @@ fn random_range(min: f32, max: f32, seed: ptr<function, u32>) -> f32 {
     return min + (max - min) * random_float(seed);
 }
 
-// Replicating your C++ random(min, max) function
 fn random_vec3(min: f32, max: f32, seed: ptr<function, u32>) -> vec3<f32> {
     return vec3<f32>(
         random_range(min, max, seed),

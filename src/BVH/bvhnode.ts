@@ -96,7 +96,7 @@ export class BVHNodeObject {
       for (let axis = 0; axis < 3; axis++) {
         
         /*
-        Sorts the objectIndeces in order of their bounding box's center
+          Sorts the objectIndices in order of their bounding box's center
         */
         const testSegment = objectIndices.slice(start, end).sort((a, b) => {
           return objects[a].bbox.center()[axis] - objects[b].bbox.center()[axis];
@@ -122,13 +122,12 @@ export class BVHNodeObject {
         }
       }
   
-      // 5. Fallback if SAH fails to find a good split
+      // default bbox if a good split isnt found
       if (bestAxis === -1) {
         bestAxis = this.bbox.longestAxisIndex();
         bestSplitIndex = start + Math.floor(objectSpan / 2);
       }
   
-      // 6. Apply the BEST sort to the actual buffer before recursing
       const finalSortedSegment = objectIndices.slice(start, end).sort((a, b) => {
         return objects[a].bbox.center()[bestAxis] - objects[b].bbox.center()[bestAxis];
       });
@@ -137,7 +136,6 @@ export class BVHNodeObject {
         objectIndices[start + i] = finalSortedSegment[i];
       }
   
-      // 7. Recurse
       this.leftChild = new BVHNodeObject(objects, objectIndices, start, bestSplitIndex, recursionDepth + 1);
       this.rightChild = new BVHNodeObject(objects, objectIndices, bestSplitIndex, end, recursionDepth + 1);
       
@@ -145,16 +143,15 @@ export class BVHNodeObject {
       this.bbox = aabb.fromAABB(this.leftChild.bbox, this.rightChild.bbox);
   }
 
-  
-
+  /*
+    Needed to set a int representing whether the node contains the primitive
+    object for the root. Allows hiding the root bounding box since
+    that bounding box is often the
+  */
   static markPathToSphereZero(node: BVHNodeObject | null): boolean {
     if (!node) return false;
 
     // Base case: This is the leaf node containing sphere 0
-    // if (node.sphereIndex === 0) {
-    //   node.containsSphereZero = true;
-    //   return true;
-    // }
     if (node.sphereIndices.includes(0)) {
       node.containsSphereZero = true;
       return true;

@@ -113,17 +113,8 @@ export class Triangle {
   }
 
   public updatebbox() {
-    let bbox = aabb.fromVec3f(this.v0, this.v1);
+    this.bbox = aabb.fromVec3f(this.v0, this.v1);
 
-    bbox.expand(aabb.fromVec3f(this.v2, this.v2));
-
-    // 3. Ensure the box isn't "flat" (important for floors/walls)
-    // Using the expand method from your Interval class
-    const epsilon = 0.0001;
-    if (bbox.x.size() < epsilon) bbox.x.expand(epsilon);
-    if (bbox.y.size() < epsilon) bbox.y.expand(epsilon);
-    if (bbox.z.size() < epsilon) bbox.z.expand(epsilon);
-
-    this.bbox = bbox;
+    this.bbox.expand(aabb.fromVec3f(this.v2, this.v2));
   }
 }
