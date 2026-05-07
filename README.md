@@ -16,7 +16,7 @@
 - [x] Project description and graphics techniques used
 - [x] Steps taken and development process
 - [x] Challenges encountered and solutions
-- [ ] Results with screenshots
+- [x] Results with screenshots
 - [ ] Effort Justification: How you met the 1.5x effort level
       - What makes this more substantial than a typical assignment?
       - What new techniques did you learn or extend?
