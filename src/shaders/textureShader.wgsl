@@ -54,16 +54,16 @@ struct RenderData { // 4*11 = 44 bytes
 @group(0) @binding(0) var screen_sampler : sampler; // used in textureRenderPipeline
 @group(0) @binding(1) var color_buffer : texture_2d<f32>; // used in boxPipeline and textureRenderPipeline
 
-@group(0) @binding(1) var<uniform> cameraData: CameraData; // used in boxPipeline
-@group(0) @binding(2) var<uniform> renderData : RenderData; // used in boxPipeline
-@group(0) @binding(3) var<storage, read> bvh: BVH;// used in boxPipeline
-@group(0) @binding(4) var boxDepthTexture: texture_2d<f32>; // used in boxPipeline
+@group(0) @binding(2) var<uniform> cameraData: CameraData; // used in boxPipeline
+@group(0) @binding(3) var<uniform> renderData : RenderData; // used in boxPipeline
+@group(0) @binding(4) var<storage, read> bvh: BVH;// used in boxPipeline
+@group(0) @binding(5) var boxDepthTexture: texture_2d<f32>; // used in boxPipeline
 
 
 struct BoxOutput {
     @builtin(position) Position : vec4<f32>,
     @location(0) Color : vec3<f32>,
-    @location(1) world_pos : vec3<f32>, // <--- Add this
+    @location(1) worldPosition : vec3<f32>, // <--- Add this
 }
 struct VertexInput {
     @location(0) unit_pos: vec3<f32>,
@@ -74,9 +74,9 @@ fn vs_box(in: VertexInput) -> BoxOutput {
   let node: BVHNode = bvh.nodes[in.i_idx];
   
   // Transform unit cube corner to world space
-  let world_pos = node.min + in.unit_pos * (node.max - node.min);
+  let worldPosition = node.min + in.unit_pos * (node.max - node.min);
   // Camera Transformation
-  let view_dir = world_pos - cameraData.cameraPos;
+  let view_dir = worldPosition - cameraData.cameraPos;
   let view_z = dot(view_dir, cameraData.cameraForwards);
   let view_x = dot(view_dir, cameraData.cameraRight);
   let view_y = dot(view_dir, cameraData.cameraUp);
@@ -88,10 +88,10 @@ fn vs_box(in: VertexInput) -> BoxOutput {
   
   /*
     Need the position of the vertex to be in clipspace (same as in compute shader)
-    Get clip space position by view Matrix * projection matrix * world position
+    Get clip space position by  projection matrix * view Matrix * world position
   */
-  out.Position = cameraData.viewProjectionMatrix * vec4<f32>(world_pos, 1.0);
-  out.world_pos = world_pos;
+  out.Position = cameraData.viewProjectionMatrix * vec4<f32>(worldPosition, 1.0);
+  out.worldPosition = worldPosition;
   // before going to fragment shader, it is converted to NDC by dividing out.Position.xyz by w.
 
   // Leaf nodes green, internal nodes red
@@ -121,7 +121,7 @@ fn fs_box(
   if (renderData.depthTestBVH == 1) {
     // sphere hit depth (boxDepthTexture) is written by compute texture
     // textureLoad uses integer coordinates vec2<i32>
-    let tex_coords = vec2<i32>(in.Position.xy);
+    let tex_coords = vec2<i32>(floor(in.Position.xy));
     let boxDepth = textureLoad(boxDepthTexture, tex_coords, 0).r;
 
     if (boxDepth < 0.0) {
@@ -130,9 +130,8 @@ fn fs_box(
     
     
     // boxDepth is distance from the camera's world position to the box's world position
-    let boxDistance = distance(cameraData.cameraPos, in.world_pos);
+    let boxDistance = distance(cameraData.cameraPos, in.worldPosition);
     if (boxDepth < 1000.0 && boxDistance > boxDepth) {
-      // return vec4<f32>(1.0, 1.0, 1.0, 1.0); 
       discard;
     }
 

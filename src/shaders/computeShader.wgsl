@@ -117,7 +117,7 @@ struct RenderData { // 4*11 = 44 bytes
 @group(0) @binding(2) var<storage, read> spheresData: SpheresData;
 @group(0) @binding(3) var<storage, read> trianglesData: TriangleData;
 @group(0) @binding(4) var<uniform> renderData: RenderData;
-@group(0) @binding(5) var<storage, read_write> accumulation_buffer: array<vec4<f32>>;
+@group(0) @binding(5) var<storage, read_write> accumulationBuffer: array<vec4<f32>>;
 @group(0) @binding(6) var<storage, read> bvh: BVH;
 @group(0) @binding(7) var depthBuffer: texture_storage_2d<r32float, write>;
 
@@ -142,7 +142,7 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
     Need to convert from ndc to world coordinates so that it is synchronized with the
     box shader
   */
-  var screen_pos = vec4<f32>(ndc.x, ndc.y, 0.0, 1.0); // Near plane
+  var screen_pos = vec4<f32>(ndc.x, ndc.y, 1.0, 1.0); // Near plane
   var world_target = cameraData.inverseViewProjectionMatrix * screen_pos;
   var world_pos = world_target.xyz / world_target.w;
   var myRay: Ray;
@@ -152,25 +152,17 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
   var outputColor: vec3<f32>;
   var resultHitRecord: HitRecord;
   if (renderData.temporalAccumulation == 1u) {
-    let jitter = vec2<f32>(random_float(&seed), random_float(&seed)) - 0.5;
-    uv = (vec2f(GlobalInvocationID.xy) + 0.5 + jitter) / vec2f(canvas_size);
-    ndc= (uv * 2.0) - 1.0;
-    ndc.y = -ndc.y;
-    screen_pos = vec4<f32>(ndc.x, ndc.y, 0.0, 1.0); // Near plane
-    world_target = cameraData.inverseViewProjectionMatrix * screen_pos;
-    world_pos = world_target.xyz / world_target.w;
-    myRay.direction = normalize(world_pos - myRay.origin);
+    // Temporal Accumulation
 
     resultHitRecord = rayColor(myRay, &seed);
     outputColor = resultHitRecord.color;
 
-    let pixel_index = GlobalInvocationID.y * renderData.image_width + GlobalInvocationID.x;
     if (renderData.frameCount == 1u) {
       // First frame: store the color
       outputColor = resultHitRecord.color;
     } else {
       // Subsequent frames: Blend with previous data
-      let old_color = accumulation_buffer[pixel_index].rgb;
+      let old_color = accumulationBuffer[pixel_index].rgb;
       
       /*
         Weighed Average
@@ -181,25 +173,24 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
       let weight = 1.0 / f32(renderData.frameCount);
       outputColor = mix(old_color, resultHitRecord.color, weight);
     }
-    accumulation_buffer[pixel_index] = vec4<f32>(outputColor, 1.0);
+    accumulationBuffer[pixel_index] = vec4<f32>(outputColor, 1.0);
 
-    if (renderData.hasGammaCorrection == 1) {
-      outputColor = sqrt(outputColor);
-    }
+   
   } else {
     resultHitRecord = rayColor(myRay,  &seed);
-    // write to accumulation_buffer to prevent stale data from appearing
+
+    // write to accumulationBuffer to prevent stale data from appearing
     // for the first frame when the accumulation buffer is turned on
-    accumulation_buffer[pixel_index] = vec4<f32>(outputColor, 1.0);
+    accumulationBuffer[pixel_index] = vec4<f32>(outputColor, 1.0);
 
     outputColor = resultHitRecord.color;
-    if (renderData.hasGammaCorrection == 1) {
-      outputColor = sqrt(outputColor);
-    }
+   
   }
   // textureStore(color_buffer, canvas_pos, vec4<f32>(outputColor, 1.0));
   // textureStore(depthBuffer, canvas_pos, vec4<f32>(10000, 0.0, 0.0, 0.0));
-
+ if (renderData.hasGammaCorrection == 1) {
+      outputColor = sqrt(outputColor);
+    }
   /* 
     Stores the outputColor from the rayTracer in the color buffer that will be rendered to the screen in
     the fragment shader fs (in textureShader.wgsl).
@@ -265,21 +256,21 @@ fn rayColor(ray: Ray, seed: ptr<function, u32>) -> HitRecord {
         firstHitCaptured = true;
       }
       var scatterDirection: vec3<f32>;
-
+      let diffuseDir = normalize(hitRecord.normal + random_unit_vector(seed));
+      let reflectDir = normalize(reflect(currentRay.direction, hitRecord.normal) 
+        + hitRecord.fuzz * random_on_hemisphere(hitRecord.normal, seed));
       if (hitRecord.material == 0) {  // matte
         
         if (renderData.diffuseType == 0) {// simple diffuse - matte
           scatterDirection = random_on_hemisphere(hitRecord.normal, seed);
         } else {// lambertian - matte
-          scatterDirection = hitRecord.normal + random_unit_vector(seed);
+          scatterDirection = normalize(hitRecord.normal + random_unit_vector(seed));
         }
         throughput *= hitRecord.color * 0.5;
 
       } else if (hitRecord.material == 1) { // metallic
         // reflectDir: currentRay.direction  - dot(currentRay.direction, hitRecord.normal) * hitRecord.normal;
-        let diffuseDir = normalize(hitRecord.normal + random_unit_vector(seed));
-        let reflectDir = normalize(reflect(currentRay.direction, hitRecord.normal) 
-        + hitRecord.fuzz * random_on_hemisphere(hitRecord.normal, seed));
+        
         // scatterDirection = reflect(normalize(currentRay.direction), normalize(hitRecord.normal))
         //   + hitRecord.fuzz * random_on_hemisphere(hitRecord.normal, seed);
        scatterDirection = mix(diffuseDir, reflectDir, hitRecord.reflectivity);
@@ -299,8 +290,8 @@ fn rayColor(ray: Ray, seed: ptr<function, u32>) -> HitRecord {
         let isEnteringMaterial: bool =  dot(currentRay.direction, hitRecord.normal) < 0.0;
         
         let normal = select(
-          hitRecord.normal,
-          -hitRecord.normal,        
+          -hitRecord.normal,
+          hitRecord.normal,        
           isEnteringMaterial
         );
 
@@ -320,19 +311,18 @@ fn rayColor(ray: Ray, seed: ptr<function, u32>) -> HitRecord {
           sin(theta) = (hitRecord.refractivity / airReflectivity) * sin(theta')
         */
         let ri: f32 = select(
-          airReflectivity / hitRecord.refractivity, 
+           
           hitRecord.refractivity / airReflectivity,  
+          airReflectivity / hitRecord.refractivity,
           isEnteringMaterial
         );
-        let c = min(dot(-currentRay.direction, hitRecord.normal), 1.0);
+        let c = min(dot(-currentRay.direction, normal), 1.0);
         let s = sqrt(1.0 -  c * c);
         let cannotRefract: bool = ri * s > 1.0;
         var direction: vec3<f32>;
         
         if (cannotRefract || reflectance(c, ri) > random_float(seed)) {
-          let diffuseDir = normalize(hitRecord.normal + random_unit_vector(seed));
-          let reflectDir = normalize(reflect(currentRay.direction, hitRecord.normal) 
-            + hitRecord.fuzz * random_on_hemisphere(hitRecord.normal, seed));
+         
         
           scatterDirection = mix(diffuseDir, reflectDir, hitRecord.reflectivity);
 
@@ -349,7 +339,7 @@ fn rayColor(ray: Ray, seed: ptr<function, u32>) -> HitRecord {
         } else {
           scatterDirection = refract(
             currentRay.direction,
-             hitRecord.normal,
+             normal,
             ri
           );
           // throughput *= 0.5*hitRecord.color;

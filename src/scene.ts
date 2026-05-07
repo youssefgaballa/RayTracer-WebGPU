@@ -294,8 +294,6 @@ export class Scene {
   rebuildBVH() {
     if (Renderer.toggleBVH == 0 || Renderer.toggleBVH == 1) { // regular BVH
       this.bvhNodes = BVHNodeObject.flatten(this.bvhNodeObject! );
-    } else if (Renderer.toggleBVH == 2) { // stackless BVH
-      this.bvhNodes = BVHNodeObject.flattenStackless(this.bvhNodeObject! );
     }
   }
 
@@ -463,7 +461,7 @@ export class Scene {
         createControl("Material");
         createControl("Fuzziness", 0.0, 1.0, 0.01);
         createControl("Reflectance", 0.0, 1.0, 0.01);
-        createControl("Refractance", 0.1, 3.0, 0.01);
+        createControl("Refractance", 1.0, 5.0, 0.01);
 
         createControl("Reset");
       }
@@ -539,7 +537,7 @@ export class Scene {
           li.appendChild(colorPicker);
         } else if (label === "Material") {
           const select = document.createElement("select");
-          const materials = ["Matte", "Metallic", "Reflective"];
+          const materials = ["Matte", "Metallic", "Refractive"];
           materials.forEach((name, value) => {
             const option = document.createElement("option");
             option.value = value.toString();

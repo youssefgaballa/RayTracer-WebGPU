@@ -65,6 +65,13 @@ export class aabb {
 
   }
 
+  /*
+    Returns the axis
+    that is longest.
+    0 if x-axis.
+    1 if y-axis
+    2 if z-axis
+  */
   longestAxisIndex(): number {
     if (this.x.size() > this.y.size()) {
       return this.x.size() > this.z.size() ? 0 : 2;
@@ -73,9 +80,17 @@ export class aabb {
     }
 
   }
+
+  /*
+    Returns a vector pointing to the center of the aabb box
+  */
   center() {
     return new Float32Array([0.5 * this.x.size(),0.5 * this.y.size(),0.5 * this.z.size()])
   }
+  /*
+    Calculates the surface area of the bounding box
+    Needed for SAH in creating bounding box.
+  */
   surfaceArea(): number {
     // Calculate the length of each side
     const width = this.x.size();

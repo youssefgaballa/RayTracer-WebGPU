@@ -598,7 +598,7 @@ export class Renderer {
           resource: this.colorBuffer.createView()
         },
         {
-          binding: 2,
+          binding: 2, // @binding(2)
           resource: {
               buffer: this.bvhNodesBuffer,
           }
@@ -615,21 +615,21 @@ export class Renderer {
           sampler: {},
         },
         {
-          binding: 1, // @binding(1) - cameraBuffer
+          binding: 2, // @binding(2) - cameraBuffer
           visibility: GPUShaderStage.VERTEX  | GPUShaderStage.FRAGMENT,
           buffer: {
             type: "uniform",
           }  
         },
         {
-          binding: 2, // @binding(2) - renderDataBuffer
+          binding: 3, // @binding(3) - renderDataBuffer
           visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
           buffer: {
             type: "uniform"
           }
         },
         {
-          binding: 3,// @binding(3) - bvh
+          binding: 4,// @binding(4) - bvh
           visibility: GPUShaderStage.VERTEX,
           buffer: {
               type: "read-only-storage",
@@ -637,10 +637,9 @@ export class Renderer {
           }
         },
         {
-          binding: 4, // @binding(4) - boxDepthTexture
+          binding: 5, // @binding(5) - boxDepthTexture
           visibility: GPUShaderStage.FRAGMENT,
           texture: {
-            // Change from the default 'float' to 'unfilterable-float'
             sampleType: 'unfilterable-float', 
             viewDimension: '2d',
           },
@@ -656,23 +655,23 @@ export class Renderer {
           resource: this.sampler,
         },
         {
-          binding: 1, // @binding(1)
+          binding: 2, // @binding(2)
           resource: this.cameraBuffer,
         },
         {
-          binding: 2, // @binding(2)
+          binding: 3, // @binding(3)
           resource: {
               buffer: this.renderDataBuffer 
           }
         },
         {
-          binding:3,
+          binding:4,// @binding(4)
           resource: {
               buffer: this.bvhNodesBuffer,
           }
         },
         {
-          binding: 4, // @binding(4) - boxDepthTexture
+          binding: 5, // @binding(5) - boxDepthTexture
           resource: this.boxDepthTexture.createView()
         },
       ],
@@ -698,31 +697,37 @@ export class Renderer {
     // Write to Camera Buffer:
     /*
       Format of CameraData struct:
-      cameraPos: vec3<f32>,     - 4 * 3  = 12 bytes
-      padding0: f32,            - 4 bytes
-      cameraForwards: vec3<f32>,- 4 * 3  = 12 bytes
-      padding1: f32,            - 4 bytes
-      cameraRight: vec3<f32>,   - 4 * 3  = 12 bytes
-      padding2: f32,            - 4 bytes
-      cameraUp: vec3<f32>,      - 4 * 3  = 12 bytes
-      padding3: f32,            - 4 bytes
-      size of CameraData        - 64 bytes
+      cameraPos: vec3<f32>,       - 4 * 3  = 12 bytes
+      padding0: f32,              - 4 bytes
+      cameraForwards: vec3<f32>,  - 4 * 3  = 12 bytes
+      padding1: f32,              - 4 bytes
+      cameraRight: vec3<f32>,     - 4 * 3  = 12 bytes
+      padding2: f32,              - 4 bytes
+      cameraUp: vec3<f32>,        - 4 * 3  = 12 bytes
+      padding3: f32,              - 4 bytes
+      viewProjectionMatrix        - mat4x4<f32> - 64 bytes
+      inverseViewProjectionMatrix - mat4x4<f32> - 64 bytes
+
+      size of CameraData        -   128 bytes
     */
    if (isInit == true) {
     this.cameraData = new Float32Array(48);
 
    }
 
-    this.cameraData.set(this.scene.camera.position, 0);   this.cameraData[3] = 0.0;
-    this.cameraData.set(this.scene.camera.forwards, 4);   this.cameraData[7] = 0.0;
-    this.cameraData.set(this.scene.camera.right, 8);      this.cameraData[11] = 0.0;
-    this.cameraData.set(this.scene.camera.up, 12);        this.cameraData[15] = 0.0;
+    this.cameraData.set(this.scene.camera.position, 0);   
+    this.cameraData[3] = 0.0;
+    this.cameraData.set(this.scene.camera.forwards, 4);   
+    this.cameraData[7] = 0.0;
+    this.cameraData.set(this.scene.camera.right, 8);      
+    this.cameraData[11] = 0.0;
+    this.cameraData.set(this.scene.camera.up, 12);        
+    this.cameraData[15] = 0.0;
 
-    // Matrix 1: Inverse View-Projection (Indices 16-31)
+    // Inverse View-Projection (Indices 16-31)
     this.cameraData.set(this.scene.camera.viewProjectionMatrix, 16);
 
-    // Matrix 2: Inverse Projection (Indices 32-47) 
-    // Assuming you have a second matrix, otherwise just use a 32-float array
+    // Inverse View-Projection (Indices 32-63)
     if (this.scene.camera.inverseViewProjectionMatrix) {
       this.cameraData.set(this.scene.camera.inverseViewProjectionMatrix, 32);
     }
@@ -743,10 +748,7 @@ export class Renderer {
       4     +  // roughness
       12;        //padding
     const entryLength = sphereStructSizeBytes / 4; 
-    // const positionOffset = 0;
-    // const radiusOffset = 3 * 4; // 12
-    // const colorOffset = 4 * 4; // 16
-    // const stride = 4 * 8; // 32
+
     this.sphereDataLength = 4*4 + sphereStructSizeBytes * this.scene.spheres.length;
     if (isInit == true) {
       this.sphereData = new ArrayBuffer(
@@ -754,17 +756,16 @@ export class Renderer {
       );
     }
     
-    // need to recreate the spheres buffer if new ones are added or removed
+    // need to recreate the spheres buffer if new ones are added or removed (like in scene 2)
     if (this.sphereData.byteLength !== this.sphereDataLength) {
       this.sphereData = new ArrayBuffer(this.sphereDataLength);
-      // Recreate this.spheresBuffer 
+      // Recreate this.spheresBuffer - delete old one and create one with new size
       this.spheresBuffer.destroy();
       this.spheresBuffer = this.device.createBuffer({
           size: this.sphereDataLength,
           usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
       });
-      this.updateBindGroups = true;
-      // this.configureBindGroups();
+      this.updateBindGroups = true;// signals update() to call configureBindGroups
     }
     const sphereDataAsF32: Float32Array = new Float32Array(this.sphereData);
     const sphereDataAsU32: Uint32Array = new Uint32Array(this.sphereData);
@@ -794,8 +795,6 @@ export class Renderer {
 
 
     }
-    // console.log("sphereDataAsF32", sphereDataAsF32)
-    // console.log("this.scene.skyColor", this.scene.skyColor)
 
     this.device.queue.writeBuffer(this.spheresBuffer, 0,
       this.sphereData,
@@ -853,10 +852,6 @@ export class Renderer {
       triangleDataAsF32[offset + 17] = triangle.normal[1];
       triangleDataAsF32[offset + 18] = triangle.normal[2];
       triangleDataAsF32[offset + 19] = 0.0;
-      // triangleDataAsF32[offset + 8] = triangle.fuzziness;
-      // triangleDataAsF32[offset + 9] = triangle.reflectivity;
-      // triangleDataAsF32[offset + 10] = triangle.refractivity;
-
 
     }
    
@@ -868,7 +863,6 @@ export class Renderer {
   }
 
   private writeBVHNodesBuffer() {
-    // Write to BVH Nodes Buffer:
     /*
       Format of bvhNodeBuffer:
       // numNodes: u32 - 4 bytes
@@ -911,10 +905,7 @@ export class Renderer {
       this.bvhNodeData[offset + 9] = this.scene.bvhNodes[i].rightChild; 
       this.bvhNodeData[offset + 10] = this.scene.bvhNodes[i].objectIdx;
       this.bvhNodeData[offset + 11] = this.scene.bvhNodes[i].depth;
-      // this.bvhNodeData[offset + 12] = 0;
-      // this.bvhNodeData[offset + 13] = 0;
-      // this.bvhNodeData[offset + 14] = 0;
-      // this.bvhNodeData[offset + 15] = 0;
+
     }
     const requiredSizeBVH = this.bvhNodeData.byteLength;
     if (this.bvhNodesBuffer.size !== requiredSizeBVH) {
@@ -1078,10 +1069,11 @@ export class Renderer {
       2, 3, // back to front, top left
       3, 0, // front, top left to bottom left
       // 4 - 7:
-      4, 5, //
+      4, 5, // right square
       5, 6, 
       6, 7,
-      7, 4, 
+      7, 4,
+      // 8 - 12:  front and back horizontal lines
       0, 4, 
       1, 5, 
       2, 6, 
@@ -1151,7 +1143,7 @@ export class Renderer {
   private configureGPUCanvasContext() {
     this.context = Renderer.canvas.getContext("webgpu") as GPUCanvasContext;
     this.textureFormat = navigator.gpu.getPreferredCanvasFormat();
-    // this.textureFormat = "bgra8unorm";
+    // this.textureFormat = "bgra8unorm-srgb";
 
     this.context.configure({
       device: this.device,

@@ -2,13 +2,9 @@ import { Scene } from "../scene";
 import { Sphere } from "../sphere";
 import  { Triangle } from "../triangle";
 import { aabb } from "./aabb";
+
 export class BVHNode {
-  // min: Float32Array
-  // leftChild: number
-  // max: Float32Array
-  // rightChild: number
-  // objectIdx: number
-  // depth: number = 0;
+
   leftChild: number
   rightChild: number
   objectIdx: number
@@ -53,9 +49,9 @@ export class BVHNode {
     );
 
   }
-
-
 }
+
+
 export class BVHNodeObject {
   bbox: aabb;
   leftChild?: (BVHNodeObject | null) = null;
@@ -66,7 +62,7 @@ export class BVHNodeObject {
   sphereIndices: number[] = [];
 
   /*
-  Builds the Bounding Volume Hierarchy.
+    Builds the Bounding Volume Hierarchy using Surface Area Heuristic (SAH)
   */
   constructor(objects: (Sphere | Triangle)[], objectIndices: number[], 
     start: number, end: number, recursionDepth: number) {
