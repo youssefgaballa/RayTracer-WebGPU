@@ -554,7 +554,7 @@ export class Renderer {
         {
           binding: 6, // @binding(6)
           resource: {
-              buffer: this.bvhNodesBuffer,
+            buffer: this.bvhNodesBuffer,
           }
         },
         {
@@ -601,7 +601,7 @@ export class Renderer {
         {
           binding: 2, // @binding(2)
           resource: {
-              buffer: this.bvhNodesBuffer,
+            buffer: this.bvhNodesBuffer,
           }
         },
       ],
@@ -657,7 +657,7 @@ export class Renderer {
         },
         {
           binding: 2, // @binding(2)
-          resource: this.cameraBuffer,
+          resource: {buffer: this.cameraBuffer},
         },
         {
           binding: 3, // @binding(3)
