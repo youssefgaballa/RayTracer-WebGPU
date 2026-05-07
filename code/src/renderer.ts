@@ -525,7 +525,7 @@ export class Renderer {
       entries: [
         {
           binding: 0, // @binding(0)
-          resource: this.colorBuffer,
+          resource: this.colorBuffer.createView(),
         },
         {
           binding: 1, // @binding(1)
@@ -559,7 +559,7 @@ export class Renderer {
         },
         {
           binding: 7,// @binding(7)
-          resource: this.boxDepthTexture,
+          resource: this.boxDepthTexture.createView(),
         },
       ],
     });
@@ -573,18 +573,11 @@ export class Renderer {
           sampler: {},
         },
         {
-          binding: 1, // @binding(1) - color_buffer
+          binding: 1, // @binding(1) - colorBuffer
           visibility: GPUShaderStage.FRAGMENT,
           texture: {},
         },
-        {
-          binding: 2,// @binding(2) - renderData
-          visibility: GPUShaderStage.VERTEX,
-          buffer: {
-              type: "read-only-storage",
-              hasDynamicOffset: false
-          }
-        },
+
       ],
     });
     this.textureBindGroup = this.device.createBindGroup({
@@ -598,12 +591,7 @@ export class Renderer {
           binding: 1, // @binding(1)
           resource: this.colorBuffer.createView()
         },
-        {
-          binding: 2, // @binding(2)
-          resource: {
-            buffer: this.bvhNodesBuffer,
-          }
-        },
+
       ],
     });
 
@@ -623,7 +611,7 @@ export class Renderer {
           }  
         },
         {
-          binding: 3, // @binding(3) - renderDataBuffer
+          binding: 3, // @binding(3) - renderData
           visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
           buffer: {
             type: "uniform"
