@@ -318,7 +318,8 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {\r
 \r
   if (canvas_pos.x >= canvas_size.x || canvas_pos.y >= canvas_size.y) {return;}\r
   var uv: vec2<f32> = (vec2f(GlobalInvocationID.xy) + 0.5) / vec2<f32>(canvas_size) ;\r
-  var seed: u32 = GlobalInvocationID.x + GlobalInvocationID.y * u32(renderData.imageWidth)\r
+  var seed: u32 = GlobalInvocationID.x + \r
+  GlobalInvocationID.y * u32(renderData.imageWidth) \r
   + (renderData.frameCount * 131071u);\r
   let pixel_index = GlobalInvocationID.y * renderData.imageWidth + GlobalInvocationID.x;\r
   var ndc: vec2<f32> = (uv * 2.0) - 1.0;\r
@@ -674,7 +675,6 @@ fn hitBVH(ray: Ray, outHitRecord: ptr<function, HitRecord>) -> bool { // 0.001, 
     if (bvhHitRecord.t > closestT) {\r
       continue;\r
     }\r
-    // if (node.objectIndex < -0.0001) { // internal node\r
     if (node.objectIndex == -1.0) { // internal node\r
       let left_node = bvh.nodes[u32(node.leftChild)];\r
       let right_node = bvh.nodes[u32(node.rightChild)];\r
@@ -722,10 +722,10 @@ fn hitBVH(ray: Ray, outHitRecord: ptr<function, HitRecord>) -> bool { // 0.001, 
       \r
     }\r
   }  \r
-  // (*outHitRecord).color = vec3(f32(nodesTouched) / 10.0, 0.0, 0.0);\r
-\r
   return (*outHitRecord).hitAnything;\r
 }\r
+\r
+\r
 fn hitAABB(ray: Ray, invD: vec3<f32>, node_min: vec3<f32>, node_max: vec3<f32>,\r
       closestT: f32, outHitRecord: ptr<function, HitRecord> ) -> bool {\r
     let t0 = (node_min - ray.origin) * invD;\r
