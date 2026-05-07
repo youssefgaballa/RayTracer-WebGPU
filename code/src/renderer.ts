@@ -529,15 +529,15 @@ export class Renderer {
         },
         {
           binding: 1, // @binding(1)
-          resource: this.cameraBuffer,
+          resource: {buffer: this.cameraBuffer},
         },
         {
           binding: 2, // @binding(2)
-          resource: this.spheresBuffer,
+          resource: {buffer: this.spheresBuffer},
         },
         {
           binding: 3, // @binding(3)
-          resource: this.trianglesBuffer,
+          resource: {buffer: this.trianglesBuffer},
         },
         {
           binding: 4, // @binding(4)
