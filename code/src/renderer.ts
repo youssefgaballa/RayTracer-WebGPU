@@ -1144,7 +1144,7 @@ export class Renderer {
 
   private async getGPUDevice(): Promise<boolean> {
     if (!navigator.gpu) {
-      this.fallback("WebGPU is not supported on this browser");
+      this.fallback("Make sure WebGPU feature flag is turned on for this browser");
       this.isSupported = false;
       return false;
     }
@@ -1153,7 +1153,7 @@ export class Renderer {
     const device = await adapter?.requestDevice();
 
     if (!device || device == null) {
-      this.fallback("Make sure WebGPU feature flag is turned on for this browser1");
+      this.fallback("Make sure WebGPU feature flag is turned on for this browser");
       this.isSupported = false;
       return false;
     }
