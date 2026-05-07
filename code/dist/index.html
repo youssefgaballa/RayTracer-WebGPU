@@ -1,0 +1,888 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>WebGPU Ray Tracer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script type="module" crossorigin>(function(){let e=document.createElement(`link`).relList;if(e&&e.supports&&e.supports(`modulepreload`))return;for(let e of document.querySelectorAll(`link[rel="modulepreload"]`))n(e);new MutationObserver(e=>{for(let t of e)if(t.type===`childList`)for(let e of t.addedNodes)e.tagName===`LINK`&&e.rel===`modulepreload`&&n(e)}).observe(document,{childList:!0,subtree:!0});function t(e){let t={};return e.integrity&&(t.integrity=e.integrity),e.referrerPolicy&&(t.referrerPolicy=e.referrerPolicy),e.crossOrigin===`use-credentials`?t.credentials=`include`:e.crossOrigin===`anonymous`?t.credentials=`omit`:t.credentials=`same-origin`,t}function n(e){if(e.ep)return;e.ep=!0;let n=t(e);fetch(e.href,n)}})();var e=typeof Float32Array<`u`?Float32Array:Array;Math.PI/180,180/Math.PI;function t(){var t=new e(16);return e!=Float32Array&&(t[1]=0,t[2]=0,t[3]=0,t[4]=0,t[6]=0,t[7]=0,t[8]=0,t[9]=0,t[11]=0,t[12]=0,t[13]=0,t[14]=0),t[0]=1,t[5]=1,t[10]=1,t[15]=1,t}function n(e,t){var n=t[0],r=t[1],i=t[2],a=t[3],o=t[4],s=t[5],c=t[6],l=t[7],u=t[8],d=t[9],f=t[10],p=t[11],m=t[12],h=t[13],g=t[14],_=t[15],v=n*s-r*o,y=n*c-i*o,b=n*l-a*o,x=r*c-i*s,S=r*l-a*s,C=i*l-a*c,w=u*h-d*m,T=u*g-f*m,E=u*_-p*m,D=d*g-f*h,O=d*_-p*h,k=f*_-p*g,A=v*k-y*O+b*D+x*E-S*T+C*w;return A?(A=1/A,e[0]=(s*k-c*O+l*D)*A,e[1]=(i*O-r*k-a*D)*A,e[2]=(h*C-g*S+_*x)*A,e[3]=(f*S-d*C-p*x)*A,e[4]=(c*E-o*k-l*T)*A,e[5]=(n*k-i*E+a*T)*A,e[6]=(g*b-m*C-_*y)*A,e[7]=(u*C-f*b+p*y)*A,e[8]=(o*O-s*E+l*w)*A,e[9]=(r*E-n*O-a*w)*A,e[10]=(m*S-h*b+_*v)*A,e[11]=(d*b-u*S-p*v)*A,e[12]=(s*T-o*D-c*w)*A,e[13]=(n*D-r*T+i*w)*A,e[14]=(h*y-m*x-g*v)*A,e[15]=(u*x-d*y+f*v)*A,e):null}function r(e,t,n){var r=t[0],i=t[1],a=t[2],o=t[3],s=t[4],c=t[5],l=t[6],u=t[7],d=t[8],f=t[9],p=t[10],m=t[11],h=t[12],g=t[13],_=t[14],v=t[15],y=n[0],b=n[1],x=n[2],S=n[3];return e[0]=y*r+b*s+x*d+S*h,e[1]=y*i+b*c+x*f+S*g,e[2]=y*a+b*l+x*p+S*_,e[3]=y*o+b*u+x*m+S*v,y=n[4],b=n[5],x=n[6],S=n[7],e[4]=y*r+b*s+x*d+S*h,e[5]=y*i+b*c+x*f+S*g,e[6]=y*a+b*l+x*p+S*_,e[7]=y*o+b*u+x*m+S*v,y=n[8],b=n[9],x=n[10],S=n[11],e[8]=y*r+b*s+x*d+S*h,e[9]=y*i+b*c+x*f+S*g,e[10]=y*a+b*l+x*p+S*_,e[11]=y*o+b*u+x*m+S*v,y=n[12],b=n[13],x=n[14],S=n[15],e[12]=y*r+b*s+x*d+S*h,e[13]=y*i+b*c+x*f+S*g,e[14]=y*a+b*l+x*p+S*_,e[15]=y*o+b*u+x*m+S*v,e}function i(){var t=new e(3);return e!=Float32Array&&(t[0]=0,t[1]=0,t[2]=0),t}function a(e){var t=e[0],n=e[1],r=e[2];return Math.sqrt(t*t+n*n+r*r)}function o(e,t,n,r){return e[0]=t,e[1]=n,e[2]=r,e}function s(e,t,n){return e[0]=t[0]+n[0],e[1]=t[1]+n[1],e[2]=t[2]+n[2],e}function c(e,t,n){return e[0]=t[0]-n[0],e[1]=t[1]-n[1],e[2]=t[2]-n[2],e}function l(e,t,n){return e[0]=t[0]*n,e[1]=t[1]*n,e[2]=t[2]*n,e}function u(e,t){var n=t[0],r=t[1],i=t[2],a=n*n+r*r+i*i;return a>0&&(a=1/Math.sqrt(a)),e[0]=t[0]*a,e[1]=t[1]*a,e[2]=t[2]*a,e}function d(e,t){return e[0]*t[0]+e[1]*t[1]+e[2]*t[2]}function f(e,t,n){var r=t[0],i=t[1],a=t[2],o=n[0],s=n[1],c=n[2];return e[0]=i*c-a*s,e[1]=a*o-r*c,e[2]=r*s-i*o,e}var p=c;(function(){var e=i();return function(t,n,r,i,a,o){var s,c;for(n||=3,r||=0,c=i?Math.min(i*n+r,t.length):t.length,s=r;s<c;s+=n)e[0]=t[s],e[1]=t[s+1],e[2]=t[s+2],a(e,e,o),t[s]=e[0],t[s+1]=e[1],t[s+2]=e[2];return t}})();var m=class e{min;max;constructor(e,t){return this.min=e,this.max=t,this}static noArg(){return new e(Number.MAX_VALUE,-Number.MAX_VALUE)}static fromIntervals(t,n){return new e(t.min<=n.min?t.min:n.min,t.max>=n.max?t.max:n.max)}size(){return this.max-this.min}contains(e){return this.min<=e&&e<=this.max}expand(e){let t=e/2;this.min-=t,this.max+=t}clamp(e){return e<this.min?this.min:e>this.max?this.max:e}},h=class{position;pitch;pitchInterval=new m(.001,Math.PI-.001);yaw;forwards;right;up;fov;fovSlider=document.getElementById(`fov`);fovSpan=document.getElementById(`fov-val`);sensitivity;sensSlider=document.getElementById(`sens`);sensSpan=document.getElementById(`sens-val`);resetButton=document.getElementById(`reset-camera`);projectionMatrix;viewMatrix;viewProjectionMatrix;inverseViewProjectionMatrix;speeds={normal:.006,fast:.02};speed=this.speeds.normal;keysPressed={w:!1,a:!1,s:!1,d:!1,up:!1,down:!1};mouseActive=!1;updatedCamera=!1;debug0=!1;isPointerLocked=!1;initialTransform;constructor(e){this.position=new Float32Array(e),this.pitch=this.pitchInterval.clamp(Math.PI/2),this.yaw=Math.PI/2,this.fov=75,this.recalculate_vectors(),this.registerInputListeners(),this.initialTransform={position:new Float32Array(this.position),pitch:this.pitch,yaw:this.yaw,speed:this.speeds.normal,sensitivity:this.sensitivity,fov:this.fov,keysPressed:{w:!1,a:!1,s:!1,d:!1,up:!1,down:!1},mouseActive:!1}}recalculate_vectors(){this.forwards=new Float32Array([Math.sin(this.pitch)*Math.cos(this.yaw),Math.cos(this.pitch),Math.sin(this.pitch)*Math.sin(this.yaw)]);let e=this.fov*Math.PI/180;this.right=new Float32Array([0,0,0]),f(this.right,[0,1,0],this.forwards),u(this.right,this.right),this.up=new Float32Array([0,0,0]),f(this.up,this.forwards,this.right),u(this.up,this.up);let i=w.canvas.clientWidth/w.canvas.clientHeight,a=.1,o=3e3,s=1/Math.tan(e/2),c=1/(o-a);this.projectionMatrix=new Float32Array([s/i,0,0,0,0,s,0,0,0,0,-o*c,-1,0,0,o*a*-2*c,0]),this.viewMatrix=new Float32Array([this.right[0],this.up[0],-this.forwards[0],0,this.right[1],this.up[1],-this.forwards[1],0,this.right[2],this.up[2],-this.forwards[2],0,-d(this.right,this.position),-d(this.up,this.position),d(this.forwards,this.position),1]),this.debug0||=(console.log(w.canvas.clientWidth,w.canvas.clientHeight),console.log(`this.viewMatrix`,this.viewMatrix),console.log(`this.projectionMatrix`,this.projectionMatrix),!0),this.viewProjectionMatrix=t(),r(this.viewProjectionMatrix,this.projectionMatrix,this.viewMatrix),this.inverseViewProjectionMatrix=t(),n(this.inverseViewProjectionMatrix,this.viewProjectionMatrix)}update(){let e=i();this.keysPressed.w&&s(e,e,this.forwards),this.keysPressed.s&&p(e,e,this.forwards),this.keysPressed.d&&s(e,e,this.right),this.keysPressed.a&&p(e,e,this.right),o(e,e[0],0,e[2]),this.keysPressed.up&&s(e,e,this.up),this.keysPressed.down&&p(e,e,this.up),u(e,e),l(e,e,this.speed*w.deltaT),s(this.position,this.position,e),this.keysPressed.w==0&&this.keysPressed.s==0&&this.keysPressed.d==0&&this.keysPressed.a==0&&this.keysPressed.up==0&&this.keysPressed.down==0&&this.mouseActive==0&&(this.updatedCamera=!1),this.recalculate_vectors()}registerInputListeners(){window.addEventListener(`keydown`,e=>{if(!this.isPointerLocked)return;let t=e.key;e.preventDefault(),t==`w`||t==`W`?(this.keysPressed.w=!0,this.updatedCamera=!0):t==`d`||t==`D`?(this.keysPressed.d=!0,this.updatedCamera=!0):t==`s`||t==`S`?(this.keysPressed.s=!0,this.updatedCamera=!0):t==`a`||t==`A`?(this.keysPressed.a=!0,this.updatedCamera=!0):t==` `?(this.keysPressed.up=!0,this.updatedCamera=!0):t==`c`||t==`C`||t===`Control`||e.ctrlKey==1?(this.keysPressed.down=!0,this.updatedCamera=!0):t==`Shift`&&(this.speed=this.speeds.fast),console.log(this.keysPressed.down)}),window.addEventListener(`keyup`,e=>{if(!this.isPointerLocked)return;e.preventDefault();let t=e.key;t==`w`||t==`W`?this.keysPressed.w=!1:t==`d`||t==`D`?this.keysPressed.d=!1:t==`s`||t==`S`?this.keysPressed.s=!1:t==`a`||t==`A`?this.keysPressed.a=!1:t==` `?this.keysPressed.up=!1:t==`c`||t==`C`||t===`Control`||e.ctrlKey==1?this.keysPressed.down=!1:t==`Shift`&&(this.speed=this.speeds.normal)}),w.canvas.addEventListener(`mousedown`,async e=>{e.button===0&&!this.isPointerLocked&&(this.mouseActive=!0,await w.canvas.requestPointerLock())}),w.canvas.addEventListener(`mouseup`,e=>{e.button===0&&this.isPointerLocked&&(this.mouseActive=!1,document.exitPointerLock())}),document.addEventListener(`pointerlockchange`,()=>{this.isPointerLocked=document.pointerLockElement===w.canvas,this.isPointerLocked||(this.keysPressed={w:!1,a:!1,s:!1,d:!1,up:!1,down:!1},this.mouseActive=!1,this.updatedCamera=!1)},!1),window.addEventListener(`mousemove`,e=>{if(document.pointerLockElement===w.canvas&&this.isPointerLocked==1){if(Math.abs(e.movementX)>500||Math.abs(e.movementY)>500)return;this.yaw-=e.movementX*this.sensitivity,this.pitch=this.pitchInterval.clamp(this.pitch+e.movementY*this.sensitivity),this.recalculate_vectors(),this.updatedCamera=!0}},!1),this.fovSlider.addEventListener(`input`,e=>{let t=e.target;t&&(this.fov=parseInt(t.value),this.fovSpan.textContent=t.value,this.updatedCamera=!0)}),this.fovSlider.value=this.fov.toString(),this.fovSpan.textContent=this.fov.toString(),this.sensSlider.addEventListener(`input`,e=>{let t=e.target;t&&(this.sensitivity=parseFloat(t.value),this.sensSpan.textContent=t.value,this.updatedCamera=!0,console.log(this.sensitivity))}),this.sensitivity=parseFloat(this.sensSlider.value),this.sensSpan.textContent=this.sensitivity.toString(),this.resetButton.addEventListener(`click`,()=>{this.position=this.initialTransform.position,this.yaw=this.initialTransform.yaw,this.pitch=this.initialTransform.pitch,this.speed=this.initialTransform.speed,this.sensitivity=this.initialTransform.sensitivity,this.sensSlider.value=this.sensitivity.toString(),this.sensSpan.textContent=this.sensitivity.toString(),this.fov=this.initialTransform.fov,this.fovSlider.value=this.fov.toString(),this.fovSpan.textContent=this.fov.toString(),this.keysPressed.w=this.initialTransform.keysPressed.w,this.keysPressed.a=this.initialTransform.keysPressed.a,this.keysPressed.s=this.initialTransform.keysPressed.s,this.keysPressed.d=this.initialTransform.keysPressed.d,this.keysPressed.up=this.initialTransform.keysPressed.up,this.keysPressed.down=this.initialTransform.keysPressed.down,this.mouseActive=this.initialTransform.mouseActive,w.frameCount=1,this.updatedCamera=!0})}},g=class e{x;y;z;constructor(e,t,n){this.x=e,this.y=t,this.z=n}static noArg(){return new e(m.noArg(),m.noArg(),m.noArg())}static fromVec3f(t,n){return new e(t[0]<=n[0]?new m(t[0],n[0]):new m(n[0],t[0]),t[1]<=n[1]?new m(t[1],n[1]):new m(n[1],t[1]),t[2]<=n[2]?new m(t[2],n[2]):new m(n[2],t[2]))}static fromAABB(t,n){return new e(m.fromIntervals(t.x,n.x),m.fromIntervals(t.y,n.y),m.fromIntervals(t.z,n.z))}expand(e){this.x=m.fromIntervals(this.x,e.x),this.y=m.fromIntervals(this.y,e.y),this.z=m.fromIntervals(this.z,e.z)}axisToInterval(e){switch(e){case 1:return this.x;case 2:return this.y;case 3:return this.z;default:return m.noArg()}}longestAxisIndex(){return this.x.size()>this.y.size()?this.x.size()>this.z.size()?0:2:this.y.size()>this.z.size()?1:2}center(){return new Float32Array([.5*this.x.size(),.5*this.y.size(),.5*this.z.size()])}surfaceArea(){let e=this.x.size(),t=this.y.size(),n=this.z.size();return e<0||t<0||n<0?0:2*(e*t+t*n+n*e)}},_=class{position;radius;color;bbox;material;fuzziness;reflectivity;refractivity;initialProperties;constructor(e,t,n,r,i,a,o){this.position=new Float32Array(e),this.radius=t,this.color=new Float32Array(n),this.material=r,this.fuzziness=i,this.reflectivity=a,this.refractivity=o,this.updatebbox(),this.initialProperties={position:new Float32Array(this.position),radius:this.radius,color:new Float32Array(this.color),bbox:this.bbox,material:this.material,fuzziness:this.fuzziness,reflectivity:this.reflectivity,refractivity:this.refractivity}}updatebbox(){let e=i(),t=i(),n=new Float32Array([this.radius,this.radius,this.radius]);p(e,this.position,n),s(t,this.position,n),this.bbox=g.fromVec3f(new Float32Array(e),new Float32Array(t))}},v=class{v0;color;v1;material;v2;reflectivity;width;normal;refractivity;fuzziness;bbox;initialProperties;constructor(e,t,n,r,i,a,o,s){this.v0=new Float32Array(e),this.v1=new Float32Array(t),this.v2=new Float32Array(n),this.color=new Float32Array(r),this.material=i,this.fuzziness=a,this.reflectivity=o,this.refractivity=s,this.normal=new Float32Array(3),this.calculateNormal(),this.updatebbox(),this.calculateWidth(),this.initialProperties={v0:new Float32Array(this.v0),color:new Float32Array(this.color),v1:new Float32Array(this.v1),material:this.material,v2:new Float32Array(this.v2),reflectivity:this.reflectivity,normal:new Float32Array(this.normal),refractivity:this.refractivity,fuzziness:this.fuzziness,bbox:this.bbox,width:this.width}}calculateWidth(){let e=i();p(e,this.v2,this.v1),this.width=a(e)}increaseWidth(e){if(this.width<1e-6)return;let t=e/this.width;l(this.v0,this.v0,t),l(this.v1,this.v1,t),l(this.v2,this.v2,t),this.width=e,this.updatebbox(),this.calculateNormal()}calculateNormal(){let e=p(i(),this.v1,this.v0),t=p(i(),this.v2,this.v0);f(this.normal,e,t),u(this.normal,this.normal)}updatebbox(){this.bbox=g.fromVec3f(this.v0,this.v1),this.bbox.expand(g.fromVec3f(this.v2,this.v2))}},y=class e{leftChild;rightChild;objectIdx;depth=0;skipLink=-1;sphereCount;hasRoot;min;max;constructor(e,t,n,r,i,a,o,s){this.min=e,this.leftChild=t,this.max=n,this.rightChild=r,this.objectIdx=i,this.hasRoot=a,this.sphereCount=o,this.depth=s}static noArgs(){return new e(new Float32Array([1/0,1/0,1/0]),-1,new Float32Array([-1/0,-1/0,-1/0]),-1,-1,0,0,0)}},b=class e{bbox;leftChild=null;rightChild=null;sphereIndex=-1;recursionDepth=-1;containsSphereZero=!1;sphereIndices=[];constructor(t,n,r,i,a){this.recursionDepth=a;let o=i-r;if(this.bbox=g.noArg(),o<=0)return;for(let e=r;e<i;e++)this.bbox.expand(t[n[e]].bbox);if(o===1){this.sphereIndices=[n[r]],this.sphereIndex=n[r];return}let s=-1,c=-1,l=1/0,u=n.slice(r,i);for(let e=0;e<3;e++)for(let n=1;n<o;n++){let i=g.noArg(),a=g.noArg();for(let e=0;e<n;e++)i.expand(t[u[e]].bbox);for(let e=n;e<o;e++)a.expand(t[u[e]].bbox);let d=i.surfaceArea()*n+a.surfaceArea()*(o-n);d<l&&(l=d,s=e,c=r+n)}s===-1&&(s=this.bbox.longestAxisIndex(),c=r+Math.floor(o/2));let d=n.slice(r,i).sort((e,n)=>t[e].bbox.center()[s]-t[n].bbox.center()[s]);for(let e=0;e<o;e++)n[r+e]=d[e];this.leftChild=new e(t,n,r,c,a+1),this.rightChild=new e(t,n,c,i,a+1),this.bbox=g.fromAABB(this.leftChild.bbox,this.rightChild.bbox)}static markPathToSphereZero(e){if(!e)return!1;if(e.sphereIndices.includes(0))return e.containsSphereZero=!0,!0;let t=!1,n=!1;return e.leftChild!=null&&(t=this.markPathToSphereZero(e.leftChild)),e.rightChild!=null&&(n=this.markPathToSphereZero(e.rightChild)),t||n?(e.containsSphereZero=!0,!0):!1}static flatten(e){this.markPathToSphereZero(e);let t=[];function n(e){let r=t.length,i=e.leftChild===null&&e.rightChild===null,a=new y(new Float32Array([e.bbox.x.min,e.bbox.y.min,e.bbox.z.min]),-1,new Float32Array([e.bbox.x.max,e.bbox.y.max,e.bbox.z.max]),-1,i?e.sphereIndices[0]:-1,0,0,e.recursionDepth);x.bvhMaxDepth=Math.max(x.bvhMaxDepth,e.recursionDepth),t.push(a),i||(a.leftChild=r+1,n(e.leftChild),a.rightChild=t.length,n(e.rightChild)),a.hasRoot=+!!e.containsSphereZero}return n(e),t}},x=class e{spheres;triangles;numSpheres;sphereCount;camera;objectIndeces;bvhNodes;bvhNodeObject;static bvhMaxDepth=0;numSpheresSlider=document.getElementById(`numSpheres`);numSpheresSpan=document.getElementById(`numSpheres-val`);objectControls=document.getElementById(`object-controls`);skyColorInput=document.getElementById(`skyColorInput`);skyColorReset=document.getElementById(`reset-skyColor`);skyColor;sceneRadios=document.querySelectorAll(`input[name="scene"]`);scene;static updatedScene;constructor(){this.spheres=[],this.triangles=[],this.camera=new h([1,5,-18]),this.objectIndeces=[],this.registerInputListeners(),this.buildScene()}updateScene(){this.spheres.forEach(e=>{e.updatebbox()}),this.buildBVH(),this.debug()}debug(){}buildScene(){this.spheres=[],this.triangles=[],this.objectIndeces=[],this.bvhNodes=[],e.bvhMaxDepth=0,this.scene===1?this.createScene1():this.scene===2&&this.createRandomSpheres(this.numSpheres),this.sphereCount=this.spheres.length,this.buildBVH(),e.updatedScene=!0}registerInputListeners(){this.sceneRadios.forEach(t=>{t.addEventListener(`change`,t=>{let n=t.target;n&&n.checked&&(console.log(n.value),this.scene=parseInt(n.value),e.updatedScene=!0,this.buildScene())})}),this.scene=parseInt(document.querySelector(`input[name="scene"]:checked`).value),this.numSpheres=parseInt(this.numSpheresSlider.value),this.numSpheresSlider.addEventListener(`input`,e=>{let t=e.target;t&&(this.numSpheres=parseInt(t.value),this.numSpheresSpan.textContent=t.value,w.frameCount=0,this.buildScene())}),this.numSpheresSlider.value=this.numSpheres.toString(),this.numSpheresSpan.textContent=this.numSpheres.toString();let t=`#80b3ff`;this.skyColorReset.addEventListener(`click`,()=>{this.skyColorInput.value=t;let n=this.skyColorInput.value;this.skyColor=new Float32Array([parseInt(n.slice(1,3),16)/255,parseInt(n.slice(3,5),16)/255,parseInt(n.slice(5,7),16)/255]),w.frameCount=1,e.updatedScene=!0}),this.skyColorInput.value=t,this.skyColorInput.addEventListener(`input`,t=>{let n=t.target.value;this.skyColor=new Float32Array([parseInt(n.slice(1,3),16)/255,parseInt(n.slice(3,5),16)/255,parseInt(n.slice(5,7),16)/255]),w.frameCount=1,e.updatedScene=!0});let n=this.skyColorInput.value;this.skyColor=new Float32Array([parseInt(n.slice(1,3),16)/255,parseInt(n.slice(3,5),16)/255,parseInt(n.slice(5,7),16)/255])}getRandomInt(e,t){return Math.floor(Math.random()*(t-e+1))+e}getRandomFloat(e,t){return Math.random()*(t-e)+e}createRandomSpheres(e){let t=2;this.addFloor();let n=Math.max(1,e*.05);for(let r=0;r<e;r++)this.addSphere(new _([this.getRandomFloat(-10*n,10*n),this.getRandomFloat(2,10*n),this.getRandomFloat(-10*n,10*n)],this.getRandomFloat(.1,2),[this.getRandomFloat(0,1),this.getRandomFloat(0,1),this.getRandomFloat(0,1)],this.getRandomInt(0,2),this.getRandomFloat(0,1),this.getRandomFloat(0,1),this.getRandomFloat(.1,3)),t++);this.createUI()}createScene1(){let e=.5,t=2;this.addFloor().addSphere(new _([5,3,0],3,[1,1,0],1,0,1,1),t++).addSphere(new _([-5,1.9,-12],1,[1,.2,0],1,.2,.5,1),t++).addSphere(new _([-2,4.3,0],3,[1,1,0],2,0,1,1),t++).addSphere(new _([0,6.3,-11],e,[0,1,0],0,1,0,1),t++).addSphere(new _([12,3,-10],3,[0,0,1],0,1,0,1),t++).addSphere(new _([-2,4.3,-10],e,[1,0,1],0,1,0,1),t++),this.createUI(),this.debug()}addFloor(){let e=[-200,0,-200],t=[200,0,-200],n=[200,0,200];return this.addTriangle(new v(e,n,t,[.2,.8,.2],0,0,0,1),0).addTriangle(new v(n,e,[-200,0,200],[.2,.8,.2],0,0,0,1),1),this}addSphere(e,t){return this.spheres.push(e),this.objectIndeces.push(t),this}addTriangle(e,t){return this.triangles.push(e),this.objectIndeces.push(t),this}buildBVH(){this.bvhNodes=[],this.bvhNodeObject={};let e=[...this.triangles,...this.spheres];this.bvhNodeObject=new b(e,this.objectIndeces,0,e.length,0),this.rebuildBVH()}rebuildBVH(){(w.toggleBVH==0||w.toggleBVH==1)&&(this.bvhNodes=b.flatten(this.bvhNodeObject))}wgslColorToHex(e){return Math.round(Math.max(0,Math.min(1,e))*255).toString(16).padStart(2,`0`)}createUI(){this.objectControls.innerHTML=``;let t=document.createElement(`h3`);t.textContent=`Object Controls: `,this.objectControls.appendChild(t),this.triangles.forEach((t,n)=>{let r=document.createElement(`details`),i=document.createElement(`summary`);if(n==0)i.textContent=`Quad ${n}`;else if(n==1)return;r.appendChild(i);let a=document.createElement(`ul`),o=()=>{s(`Width`,.1,1e3,.1),s(`Color`),s(`Checkerboard`),s(`Reset`)},s=(n,r,i,s)=>{let c=document.createElement(`li`);if(c.textContent=`${n}`,n==`Reset`){let n=document.createElement(`button`);n.textContent=`Reset`,n.addEventListener(`click`,()=>{t.color.set(t.initialProperties.color),t.material=t.initialProperties.material,t.reflectivity=t.initialProperties.reflectivity,t.normal=t.initialProperties.normal,t.refractivity=t.initialProperties.refractivity,t.fuzziness=t.initialProperties.fuzziness,t.increaseWidth(t.initialProperties.width),w.frameCount=1,e.updatedScene=!0,a.innerHTML=``,o()}),c.appendChild(n)}else if(n==`Width`){let n=document.createElement(`input`);if(n.type=`range`,r==null||i==null||s==null)return;n.min=r.toString(),n.max=i.toString(),n.step=s.toString(),n.value=t.width.toString();let a=document.createElement(`span`);a.textContent=n.value,n.addEventListener(`input`,n=>{let r=parseFloat(n.target.value);a.textContent=r.toString(),t.increaseWidth(r),this.triangles[1].increaseWidth(r),w.frameCount=1,e.updatedScene=!0}),c.appendChild(n),c.appendChild(a)}else if(n==`Color`){let n=document.createElement(`input`);n.type=`color`,n.value=`#${this.wgslColorToHex(t.color[0])}${this.wgslColorToHex(t.color[1])}${this.wgslColorToHex(t.color[2])}`,n.addEventListener(`input`,n=>{let r=n.target.value,i=[parseInt(r.slice(1,3),16)/255,parseInt(r.slice(3,5),16)/255,parseInt(r.slice(5,7),16)/255];t.color[0]=i[0],this.triangles[1].color[0]=i[0],t.color[1]=i[1],this.triangles[1].color[1]=i[1],t.color[2]=i[2],this.triangles[1].color[2]=i[2],w.frameCount=1,e.updatedScene=!0}),c.appendChild(n)}else if(n==`Checkerboard`){c.textContent=``;let t=document.createElement(`button`);t.textContent=`Toggle Checkerboard`,t.classList.add(`toggle-btn`),t.addEventListener(`click`,()=>{t.classList.toggle(`active`),w.isCheckerBoard=+!!t.classList.contains(`active`),w.frameCount=1,console.log(`Renderer.isCheckerBoard`,w.isCheckerBoard),e.updatedScene=!0});let n=document.createElement(`br`);c.appendChild(t),c.appendChild(n),w.isCheckerBoard=+!!t.classList.contains(`active`)}a.appendChild(c)};o(),r.appendChild(a),this.objectControls.appendChild(r)}),this.spheres.forEach((t,n)=>{if(n>=12||!(t instanceof _))return;let r=document.createElement(`details`),i=document.createElement(`summary`);i.textContent=`Sphere ${n}`,r.appendChild(i);let a=document.createElement(`ul`),o={X:0,Y:1,Z:2},s=()=>{c(`X`,-15,15,.1),c(`Y`,-15,15,.1),c(`Z`,-15,15,.1),c(`Radius`,.1,5,.1),c(`Color`),c(`Material`),c(`Fuzziness`,0,1,.01),c(`Reflectance`,0,1,.01),c(`Refractance`,1,5,.01),c(`Reset`)},c=(n,r,i,c)=>{let l=document.createElement(`li`);if(l.textContent=`${n}: `,n==`Reset`){let n=document.createElement(`button`);n.textContent=`Reset`,n.addEventListener(`click`,()=>{t.position.set(t.initialProperties.position),t.radius=t.initialProperties.radius,t.color.set(t.initialProperties.color),t.material=t.initialProperties.material,t.fuzziness=t.initialProperties.fuzziness,t.reflectivity=t.initialProperties.reflectivity,t.refractivity=t.initialProperties.refractivity,w.frameCount=1,e.updatedScene=!0,a.innerHTML=``,s()}),l.appendChild(n)}else if(n===`Radius`){let n=document.createElement(`input`);if(n.type=`range`,r==null||i==null||c==null)return;n.min=r.toString(),n.max=i.toString(),n.step=c.toString(),n.value=t.radius.toString();let a=document.createElement(`span`);a.textContent=n.value,n.addEventListener(`input`,n=>{let r=parseFloat(n.target.value);a.textContent=r.toString(),t.radius=r,w.frameCount=1,e.updatedScene=!0}),l.appendChild(n),l.appendChild(a)}else if(n===`Color`){let n=document.createElement(`input`);n.type=`color`,n.value=`#${this.wgslColorToHex(t.color[0])}${this.wgslColorToHex(t.color[1])}${this.wgslColorToHex(t.color[2])}`,n.addEventListener(`input`,n=>{let r=n.target.value;t.color[0]=parseInt(r.slice(1,3),16)/255,t.color[1]=parseInt(r.slice(3,5),16)/255,t.color[2]=parseInt(r.slice(5,7),16)/255,w.frameCount=1,e.updatedScene=!0}),l.appendChild(n)}else if(n===`Material`){let n=document.createElement(`select`);[`Matte`,`Metallic`,`Refractive`].forEach((e,r)=>{let i=document.createElement(`option`);i.value=r.toString(),i.textContent=e,t.material===r&&(i.selected=!0),n.appendChild(i)}),n.addEventListener(`change`,n=>{t.material=parseInt(n.target.value),w.frameCount=1,e.updatedScene=!0}),l.appendChild(n)}else if(n===`Fuzziness`){let n=document.createElement(`input`);if(n.type=`range`,r==null||i==null||c==null)return;n.min=r.toString(),n.max=i.toString(),n.step=c.toString(),n.value=t.fuzziness.toString();let a=document.createElement(`span`);a.textContent=n.value,n.addEventListener(`input`,n=>{let r=parseFloat(n.target.value);a.textContent=r.toString(),t.fuzziness=r,w.frameCount=1,e.updatedScene=!0}),l.appendChild(n),l.appendChild(a)}else if(n===`Reflectance`){let n=document.createElement(`input`);if(n.type=`range`,r==null||i==null||c==null)return;n.min=r.toString(),n.max=i.toString(),n.step=c.toString(),n.value=t.reflectivity.toString();let a=document.createElement(`span`);a.textContent=n.value,n.addEventListener(`input`,n=>{let r=parseFloat(n.target.value);a.textContent=r.toString(),t.reflectivity=r,w.frameCount=1,e.updatedScene=!0}),l.appendChild(n),l.appendChild(a)}else if(n===`Refractance`){let n=document.createElement(`input`);if(n.type=`range`,r==null||i==null||c==null)return;n.min=r.toString(),n.max=i.toString(),n.step=c.toString(),n.value=t.refractivity.toString();let a=document.createElement(`span`);a.textContent=n.value,n.addEventListener(`input`,n=>{let r=parseFloat(n.target.value);a.textContent=r.toString(),t.refractivity=r,w.frameCount=1,e.updatedScene=!0}),l.appendChild(n),l.appendChild(a)}else{let a=document.createElement(`input`);if(a.type=`range`,r==null||i==null||c==null)return;a.min=r.toString(),a.max=i.toString(),a.step=c.toString(),a.value=t.position[o[n]].toString();let s=document.createElement(`span`);s.textContent=a.value,a.addEventListener(`input`,r=>{let i=parseFloat(r.target.value);s.textContent=i.toString(),t.position[o[n]]=i,e.updatedScene=!0}),l.appendChild(a),l.appendChild(s)}a.appendChild(l)};s(),r.appendChild(a),this.objectControls.appendChild(r)})}},S=`struct BVHNode { //12 * 4 = 48 bytes.\r
+  min: vec3<f32>,\r
+  leftChild: f32,\r
+\r
+  max: vec3<f32>,\r
+  skipLink: f32,\r
+  \r
+  containsRoot: f32,\r
+  rightChild: f32,  \r
+  // numChildren f32,\r
+  objectIndex: f32, \r
+  depth: f32,\r
+}  //  aligned to 16 bytes = sizeof(vec3f)\r
+\r
+struct BVH { // 16 + sizeof(nodes) bytes\r
+  numNodes: f32,\r
+  maxDepth: f32,\r
+  // 8 bytes padding\r
+  p1: f32,\r
+  p2: f32,\r
+  nodes: array<BVHNode>, // aligned to 16 bytes\r
+}\r
+\r
+struct CameraData {// 64 + 64 + 64  = 128 bytes\r
+  cameraPos: vec3<f32>,\r
+  padding0: f32,\r
+  cameraForwards: vec3<f32>,\r
+  padding1: f32,\r
+  cameraRight: vec3<f32>,\r
+  padding2: f32,\r
+  cameraUp: vec3<f32>,\r
+  padding3: f32,\r
+\r
+  viewProjectionMatrix: mat4x4<f32>,\r
+\r
+  inverseViewProjectionMatrix: mat4x4<f32>\r
+} \r
+\r
+struct RenderData { // 4*11 = 44 bytes\r
+  imageWidth: u32,\r
+  imageHeight: u32,\r
+  frameCount: u32,\r
+  temporalAccumulation: u32,\r
+  diffuseType: u32,\r
+  hasGammaCorrection: u32,\r
+  showBVHBoxes: u32,\r
+  hideRootBVHBox: u32,\r
+  depthTestBVH: u32,\r
+  useBVH: u32,\r
+  numRayBounces: u32,\r
+  enableCheckerBoard: u32\r
+}\r
+\r
+@group(0) @binding(0) var screenSampler : sampler; // used in textureRenderPipeline\r
+@group(0) @binding(1) var colorBuffer : texture_2d<f32>; // used in boxPipeline and textureRenderPipeline\r
+\r
+@group(0) @binding(2) var<uniform> cameraData: CameraData; // used in boxPipeline\r
+@group(0) @binding(3) var<uniform> renderData : RenderData; // used in boxPipeline\r
+@group(0) @binding(4) var<storage, read> bvh: BVH;// used in boxPipeline\r
+@group(0) @binding(5) var boxDepthTexture: texture_2d<f32>; // used in boxPipeline\r
+\r
+\r
+struct BoxOutput {\r
+    @builtin(position) Position : vec4<f32>,\r
+    @location(0) Color : vec3<f32>,\r
+    @location(1) worldPosition : vec3<f32>, // <--- Add this\r
+}\r
+struct VertexInput {\r
+    @location(0) unitCubePosition: vec3<f32>,\r
+    @builtin(instance_index) instanceIndex: u32, // ranges from 0 to bvh.numNodes - 1\r
+}\r
+@vertex\r
+fn vs_box(in: VertexInput) -> BoxOutput {\r
+  let node: BVHNode = bvh.nodes[in.instanceIndex];\r
+  \r
+  // Transform unit cube corner to world space\r
+  let worldPosition = node.min + in.unitCubePosition * (node.max - node.min);\r
+  // Camera Transformation\r
+  let view_dir = worldPosition - cameraData.cameraPos;\r
+  let view_z = dot(view_dir, cameraData.cameraForwards);\r
+  let view_x = dot(view_dir, cameraData.cameraRight);\r
+  let view_y = dot(view_dir, cameraData.cameraUp);\r
+\r
+  let aspect = f32(renderData.imageWidth) / f32(renderData.imageHeight);\r
+  let near = 0.1;\r
+  let zFar = 3000.0;\r
+  var out: BoxOutput;\r
+  \r
+  /*\r
+    Need the position of the vertex to be in clipspace (same as in compute shader)\r
+    Get clip space position by  projection matrix * view Matrix * world position\r
+  */\r
+  out.Position = cameraData.viewProjectionMatrix * vec4<f32>(worldPosition, 1.0);\r
+  out.worldPosition = worldPosition;\r
+  // before going to fragment shader, it is converted to NDC by dividing out.Position.xyz by w.\r
+\r
+  // Leaf nodes green, internal nodes red\r
+  // Interpolate based on depth so that deeper bounding boxes are closer to grren\r
+  // BVH goes from red at root, to orange to green\r
+  let leafColor = vec3<f32>(0.0, 1.0, 0.0);    // Neon Green\r
+  let internalColor = vec3<f32>(1.0, 0.0, 0.0); // Red\r
+  let depthNormalized = clamp(f32(node.depth) / f32(bvh.maxDepth), 0.0, 1.0);\r
+  out.Color = mix(\r
+    internalColor, \r
+    leafColor,\r
+    depthNormalized\r
+  );\r
+  if (renderData.hideRootBVHBox == 1 \r
+    && (node.containsRoot == 1)) { \r
+    // dont show root node\r
+    out.Position = vec4<f32>(0.0, 0.0, 2.0, 1.0);\r
+  }\r
+  return out;\r
+}\r
+\r
+@fragment\r
+fn fs_box(in: BoxOutput) -> @location(0) vec4<f32> {\r
+\r
+  if (renderData.depthTestBVH == 1) {\r
+    // sphere hit depth (boxDepthTexture) is written by compute texture\r
+    // textureLoad uses integer coordinates vec2<i32>\r
+    let tex_coords = vec2<i32>(floor(in.Position.xy));\r
+    let boxDepth = textureLoad(boxDepthTexture, tex_coords, 0).r;\r
+\r
+    if (boxDepth < 0.0) {\r
+        return vec4<f32>(1.0, 1.0, 1.0, 1.0); \r
+    }\r
+    \r
+    \r
+    // boxDepth is distance from the camera's world position to the box's world position\r
+    let boxDistance = distance(cameraData.cameraPos, in.worldPosition);\r
+    if (boxDepth < 1000.0 && boxDistance > boxDepth) {\r
+      discard;\r
+    }\r
+\r
+    return vec4<f32>(in.Color, 1.0);\r
+  } else {\r
+    return vec4<f32>(in.Color, 1.0);\r
+\r
+  }\r
+\r
+}\r
+\r
+/*\r
+  Simply output the sampled texture that the compute shader wrote to\r
+*/\r
+struct VertexOutput {\r
+    @builtin(position) Position : vec4<f32>,\r
+    @location(0) TexCoord : vec2<f32>,\r
+}\r
+@vertex\r
+fn vs(@builtin(vertex_index) VertexIndex: u32,\r
+  @builtin(instance_index) InstanceIndex: u32) -> VertexOutput {\r
+ \r
+ \r
+  var positions = array<vec2<f32>, 6>(\r
+    vec2<f32>( 1.0,  1.0),\r
+    vec2<f32>( 1.0, -1.0),\r
+    vec2<f32>(-1.0, -1.0),\r
+    vec2<f32>( 1.0,  1.0),\r
+    vec2<f32>(-1.0, -1.0),\r
+    vec2<f32>(-1.0,  1.0)\r
+  );\r
+\r
+  var texCoords = array<vec2<f32>, 6>(\r
+    vec2<f32>(1.0, 0.0),\r
+    vec2<f32>(1.0, 1.0),\r
+    vec2<f32>(0.0, 1.0),\r
+    vec2<f32>(1.0, 0.0),\r
+    vec2<f32>(0.0, 1.0),\r
+    vec2<f32>(0.0, 0.0)\r
+  );\r
+\r
+  var output: VertexOutput;\r
+  output.Position = vec4<f32>(positions[VertexIndex], 0.0, 1.0);\r
+  output.TexCoord = texCoords[VertexIndex];\r
+  return output;\r
+}\r
+\r
+@fragment\r
+fn fs(@location(0) TexCoord : vec2<f32>) -> @location(0) vec4<f32> {\r
+  return textureSample(colorBuffer, screenSampler, TexCoord);\r
+}`,C=`struct Sphere { // 48 bytes\r
+  position: vec3<f32>,\r
+  radius: f32,\r
+  color: vec3<f32>,\r
+  material: f32,\r
+  fuzz: f32,\r
+  reflectivity: f32,\r
+  refractivity: f32,\r
+  padding1: f32,\r
+} // byte aligned to 16 bytes\r
+\r
+struct Triangle { // 16*4 = 64 bytes\r
+    v0: vec3f,\r
+    reflectivity: f32,\r
+\r
+    v1: vec3f,\r
+    refractivity: f32,\r
+\r
+    v2: vec3f,\r
+    material: f32,\r
+\r
+    color: vec3f,\r
+    p0: f32,\r
+    \r
+    normal: vec3f,    // Precomputed normal\r
+    p1: f32,\r
+}; // byte aligned to 16 bytes\r
+\r
+struct SpheresData { // 16 + sizeof(spheres) bytes\r
+  skyColor: vec3<f32>,\r
+  sphereCount: u32,\r
+  spheres: array<Sphere>,\r
+}\r
+struct TriangleData { // 16 + sizeof(spheres) bytes\r
+  sphereCount: u32,\r
+  p0: f32,\r
+  p1: f32,\r
+  p2: f32,\r
+  triangles: array<Triangle>,\r
+}\r
+\r
+\r
+struct Ray {\r
+  direction: vec3<f32>,\r
+  origin: vec3<f32>,\r
+}\r
+\r
+struct CameraData {// 64 + 64 + 64  = 128 bytes\r
+  cameraPos: vec3<f32>,\r
+  padding0: f32,\r
+  cameraForwards: vec3<f32>,\r
+  padding1: f32,\r
+  cameraRight: vec3<f32>,\r
+  padding2: f32,\r
+  cameraUp: vec3<f32>,\r
+  padding3: f32,\r
+\r
+  viewProjectionMatrix: mat4x4<f32>,\r
+\r
+  inverseViewProjectionMatrix: mat4x4<f32>\r
+} \r
+struct HitRecord {\r
+  color: vec3<f32>,\r
+  hitAnything: bool,\r
+  position: vec3<f32>,\r
+  t: f32,\r
+\r
+  normal: vec3<f32>,\r
+  material: f32,\r
+  fuzz: f32,\r
+  reflectivity: f32,\r
+\r
+  refractivity: f32\r
+}\r
+\r
+\r
+struct BVHNode { //12 * 4 = 48 bytes.\r
+  min: vec3<f32>,\r
+  leftChild: f32,\r
+\r
+  max: vec3<f32>,\r
+  skipLink: f32,\r
+  \r
+  containsRoot: f32,\r
+  rightChild: f32,  \r
+  // numChildren f32,\r
+  objectIndex: f32, \r
+  depth: f32,\r
+}  //  aligned to 16 bytes = sizeof(vec3f)\r
+\r
+struct BVH { // 16 + sizeof(nodes) bytes\r
+  numNodes: f32,\r
+  maxDepth: f32,\r
+  // 8 bytes padding\r
+  p1: f32,\r
+  p2: f32,\r
+  nodes: array<BVHNode>, // aligned to 16 bytes\r
+}\r
+\r
+struct RenderData { // 4*11 = 44 bytes\r
+  imageWidth: u32,\r
+  imageHeight: u32,\r
+  frameCount: u32,\r
+  temporalAccumulation: u32,\r
+  diffuseType: u32,\r
+  hasGammaCorrection: u32,\r
+  showBVHBoxes: u32,\r
+  hideRootBVHBox: u32,\r
+  depthTestBVH: u32,\r
+  useBVH: u32,\r
+  numRayBounces: u32,\r
+  enableCheckerBoard: u32\r
+}\r
+\r
+@group(0) @binding(0) var colorBuffer: texture_storage_2d<rgba8unorm, write>;\r
+@group(0) @binding(1) var<uniform> cameraData: CameraData;\r
+@group(0) @binding(2) var<storage, read> spheresData: SpheresData;\r
+@group(0) @binding(3) var<storage, read> trianglesData: TriangleData;\r
+@group(0) @binding(4) var<uniform> renderData: RenderData;\r
+@group(0) @binding(5) var<storage, read_write> accumulationBuffer: array<vec4<f32>>;\r
+@group(0) @binding(6) var<storage, read> bvh: BVH;\r
+@group(0) @binding(7) var depthBuffer: texture_storage_2d<r32float, write>;\r
+\r
+@compute @workgroup_size(8,8,1)\r
+fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {\r
+  let canvas_size: vec2<i32> = vec2<i32>(textureDimensions(colorBuffer));  // canvas_size == [800, 400]\r
+  let aspect_ratio: f32 = f32(canvas_size.x) / f32(canvas_size.y);  \r
+\r
+  let canvas_pos: vec2<i32> = vec2<i32>(i32(GlobalInvocationID.x), i32(GlobalInvocationID.y));\r
+\r
+  if (canvas_pos.x >= canvas_size.x || canvas_pos.y >= canvas_size.y) {return;}\r
+  var uv: vec2<f32> = (vec2f(GlobalInvocationID.xy) + 0.5) / vec2<f32>(canvas_size) ;\r
+  var seed: u32 = GlobalInvocationID.x + GlobalInvocationID.y * u32(renderData.imageWidth)\r
+  + (renderData.frameCount * 131071u);\r
+  let pixel_index = GlobalInvocationID.y * renderData.imageWidth + GlobalInvocationID.x;\r
+  var ndc: vec2<f32> = (uv * 2.0) - 1.0;\r
+  ndc.y = -ndc.y; // Range(ndc.y) = [1.0, -1.0] <-- flipped because texture coords are automatically mirrored\r
+\r
+  /*\r
+    Box shader converts camera position from world coordinates\r
+    to ndc in vertex shader.\r
+    Need to convert from ndc to world coordinates so that it is synchronized with the\r
+    box shader\r
+  */\r
+  var screen_pos = vec4<f32>(ndc.x, ndc.y, 1.0, 1.0); // Near plane\r
+  var world_target = cameraData.inverseViewProjectionMatrix * screen_pos;\r
+  var world_pos = world_target.xyz / world_target.w;\r
+  var myRay: Ray;\r
+  myRay.origin = cameraData.cameraPos;\r
+  myRay.direction = normalize(world_pos - myRay.origin);\r
+\r
+  var outputColor: vec3<f32>;\r
+  var resultHitRecord: HitRecord;\r
+  if (renderData.temporalAccumulation == 1u) {\r
+    // Temporal Accumulation\r
+\r
+    resultHitRecord = rayColor(myRay, &seed);\r
+    outputColor = resultHitRecord.color;\r
+\r
+    if (renderData.frameCount == 1u) {\r
+      // First frame: store the color\r
+      outputColor = resultHitRecord.color;\r
+    } else {\r
+      // Subsequent frames: Blend with previous data\r
+      let old_color = accumulationBuffer[pixel_index].rgb;\r
+      \r
+      /*\r
+        Weighed Average\r
+        When frameCount is 1, output color is weighed completely\r
+        towards old_color which on that frame is just the buffer\r
+        from frame 0. \r
+      */\r
+      let weight = 1.0 / f32(renderData.frameCount);\r
+      outputColor = mix(old_color, resultHitRecord.color, weight);\r
+    }\r
+    accumulationBuffer[pixel_index] = vec4<f32>(outputColor, 1.0);\r
+\r
+   \r
+  } else {\r
+    resultHitRecord = rayColor(myRay,  &seed);\r
+  // resultHitRecord.color = myRay.direction;\r
+    // write to accumulationBuffer to prevent stale data from appearing\r
+    // for the first frame when the accumulation buffer is turned on\r
+    accumulationBuffer[pixel_index] = vec4<f32>(outputColor, 1.0);\r
+\r
+    outputColor = resultHitRecord.color;\r
+   \r
+  }\r
+  // textureStore(colorBuffer, canvas_pos, vec4<f32>(outputColor, 1.0));\r
+  // textureStore(depthBuffer, canvas_pos, vec4<f32>(10000, 0.0, 0.0, 0.0));\r
+ if (renderData.hasGammaCorrection == 1) {\r
+      outputColor = sqrt(outputColor);\r
+    }\r
+  /* \r
+    Stores the outputColor from the rayTracer in the color buffer that will be rendered to the screen in\r
+    the fragment shader fs (in textureShader.wgsl).\r
+  */\r
+  textureStore(colorBuffer, canvas_pos, vec4<f32>(outputColor, 1.0));\r
+\r
+   /* \r
+    Stores the depth value the ray tracer calculates for the first ray (before scattering),\r
+    which is represented by resultHitRecord.t, in the depth buffer. This is needed for using a depth\r
+    test on the BVH boxes so that the part of the wireframe box behind a sphere is not visible \r
+    (only if depthTestBVH == 1). \r
+    If the ray misses a sphere, the depth value of 10000 is used which should be farther than the far plane\r
+  */\r
+  // textureStore(depthBuffer, canvas_pos, vec4<f32>(resultHitRecord.t, 0.0, 0.0, 0.0));\r
+  if (resultHitRecord.hitAnything == true) {\r
+    textureStore(depthBuffer, canvas_pos, vec4<f32>(resultHitRecord.t, 0.0, 0.0, 0.0));\r
+  } else {\r
+    textureStore(depthBuffer, canvas_pos, vec4<f32>(10000, 0.0, 0.0, 0.0));\r
+\r
+  }\r
+  \r
+}\r
+\r
+fn rayColor(ray: Ray, seed: ptr<function, u32>) -> HitRecord {\r
+  var throughput = vec3<f32>(1.0, 1.0, 1.0);\r
+  var resultingColor = vec3<f32>(0.0);\r
+  var nearestHit: f32 = 9999;\r
+\r
+  var currentRay: Ray = ray;\r
+  let maxDepth: u32 = 2;\r
+  var resultHitRecord: HitRecord;\r
+  resultHitRecord.hitAnything = false;\r
+  var firstHitCaptured = false;\r
+  for (var depth: u32 = 0; depth < renderData.numRayBounces; depth++) {\r
+    var hitRecord: HitRecord;\r
+    var nearestHit = 10000.0;\r
+\r
+    if (renderData.useBVH == 0){ // looping through each object\r
+      var nextIdx: u32 = 0;\r
+      if (hitTriangle(currentRay, trianglesData.triangles[0], 0.001, nearestHit, &hitRecord)) {nearestHit = hitRecord.t;}\r
+      if (hitTriangle(currentRay, trianglesData.triangles[1], 0.001, nearestHit, &hitRecord)) {nearestHit = hitRecord.t;}\r
+      for (var i: u32 = 0; i < spheresData.sphereCount; i++) {\r
+        if (hit(currentRay, spheresData.spheres[i], 0.001, nearestHit, &hitRecord)) {\r
+          nearestHit = hitRecord.t;\r
+        }\r
+      }\r
+    } else if (renderData.useBVH == 1) { // BVH traversal with stack -- slower\r
+      if (hitBVH(currentRay, &hitRecord)) {\r
+\r
+        nearestHit = hitRecord.t;\r
+      }\r
+      \r
+    } \r
+    \r
+     // interpolated between white and skycolor based on currentRay.direction.y\r
+    let t = 0.5 * (currentRay.direction.y + 1.0);\r
+    let skyColor = (1.0 - t) * vec3(1.0, 1.0, 1.0) + t * spheresData.skyColor;\r
+    if (hitRecord.hitAnything == true) {\r
+      if (!firstHitCaptured) { \r
+        // used to record the t value for the hit on the actual sphere\r
+        // needed for depth testing the boxes so that visually we cant see lines behind the sphere\r
+        resultHitRecord.t = hitRecord.t;\r
+        firstHitCaptured = true;\r
+      }\r
+\r
+      var scatterDirection: vec3<f32>;\r
+      let diffuseDir = normalize(hitRecord.normal + randomUnitVector(seed));\r
+      let reflectDir = normalize(reflect(currentRay.direction, hitRecord.normal) \r
+        + hitRecord.fuzz * randomOnHemisphere(hitRecord.normal, seed));\r
+\r
+      if (hitRecord.material == 0) {  // matte\r
+        \r
+        if (renderData.diffuseType == 0) {// simple diffuse - matte\r
+          scatterDirection = randomOnHemisphere(hitRecord.normal, seed);\r
+        } else {// lambertian - matte\r
+          scatterDirection = normalize(hitRecord.normal + randomUnitVector(seed));\r
+        }\r
+        throughput *= hitRecord.color * 0.5;\r
+\r
+      } else if (hitRecord.material == 1) { // metallic\r
+        // reflectDir: currentRay.direction  - dot(currentRay.direction, hitRecord.normal) * hitRecord.normal;\r
+        \r
+        // scatterDirection = reflect(normalize(currentRay.direction), normalize(hitRecord.normal))\r
+        //   + hitRecord.fuzz * randomOnHemisphere(hitRecord.normal, seed);\r
+       scatterDirection = mix(diffuseDir, reflectDir, hitRecord.reflectivity);\r
+        // throughput *=  ((1.0 - t) * vec3(1.0, 1.0, 1.0) + t * skyColor);\r
+        // let color = ((1.0 - t) * vec3(1.0, 1.0, 1.0) + t * skyColor);\r
+        // throughput *= color * mix(0.5, 1.0, hitRecord.reflectivity);\r
+        throughput *= skyColor * mix(0.0, 1.0, hitRecord.reflectivity)\r
+        + hitRecord.color * mix(1.0, 0.0, hitRecord.reflectivity);\r
+\r
+      } else if (hitRecord.material == 2) { // refractive material\r
+        /* \r
+          if dot(currentRay.direction, hitRecord.normal) < 0.0\r
+          then the ray is opposite to the normal, which means it is\r
+          going into the sphere, so the ray is outward.\r
+          Otherwise the ray is inside the sphere\r
+        */\r
+        let isEnteringMaterial: bool =  dot(currentRay.direction, hitRecord.normal) < 0.0;\r
+        \r
+        let normal = select(\r
+          -hitRecord.normal,\r
+          hitRecord.normal,        \r
+          isEnteringMaterial\r
+        );\r
+\r
+        let airReflectivity = 1.0; // Note: the index of refraction of air is 1.0\r
+\r
+        /*\r
+          Assuming theta is the angle between the normal and incoming light, and theta' is\r
+          angle between -normal and outgoing light across boundary:\r
+          If the ray is in air, the fraction of the index of refaction of light\r
+          going from the air to the sphere is airReflectivity / hitRecord.refractivity.\r
+          \r
+          So snell's law is \r
+          sin(theta') = (airReflectivity / hitRecord.refractivity) * sin(theta)\r
+        \r
+          Otherwise, the roles of theta and theta' is reversed (same for fraction)\r
+          Snell's law is \r
+          sin(theta) = (hitRecord.refractivity / airReflectivity) * sin(theta')\r
+        */\r
+        let ri: f32 = select(\r
+           \r
+          hitRecord.refractivity / airReflectivity,  \r
+          airReflectivity / hitRecord.refractivity,\r
+          isEnteringMaterial\r
+        );\r
+        let c = min(dot(-currentRay.direction, normal), 1.0);\r
+        let s = sqrt(1.0 -  c * c);\r
+        let cannotRefract: bool = ri * s > 1.0;\r
+        var direction: vec3<f32>;\r
+        \r
+        if (cannotRefract || reflectance(c, ri) > randomFloat(seed)) {\r
+         \r
+        \r
+          scatterDirection = mix(diffuseDir, reflectDir, hitRecord.reflectivity);\r
+\r
+          // scatterDirection = reflect(\r
+          //   currentRay.direction,\r
+          //   hitRecord.normal,\r
+          // );\r
+          // scatterDirection = reflect(currentRay.direction,  normal);\r
+          \r
+          throughput *= skyColor * mix(0.0, 1.0, hitRecord.reflectivity)\r
+           + hitRecord.color * mix(1.0, 0.0, hitRecord.reflectivity);\r
+          // throughput *= vec3f(1.0,1.0,1.0);\r
+          // throughput *= 0.1 * hitRecord.color;\r
+        } else {\r
+          scatterDirection = refract(\r
+            currentRay.direction,\r
+             normal,\r
+            ri\r
+          );\r
+          // throughput *= 0.5*hitRecord.color;\r
+          // throughput *= skyColor * mix(0.0, 1.0, hitRecord.reflectivity)\r
+          //   + hitRecord.color * mix(1.0, 0.0, hitRecord.refractivity);\r
+          throughput *= vec3f(1.0,1.0,1.0);\r
+\r
+        }\r
+\r
+      }\r
+      currentRay.origin = hitRecord.position; // + (hitRecord.normal * 0.001);\r
+      currentRay.direction = normalize(scatterDirection);\r
+    } else {\r
+      // miss every object and hits sky, break out of loop to prevent next bounce\r
+\r
+      resultingColor = throughput * skyColor;\r
+      break;\r
+    }\r
+    resultingColor = throughput * skyColor;\r
+    resultHitRecord.hitAnything = hitRecord.hitAnything;\r
+    if (max(throughput.r, max(throughput.g, throughput.b)) < 0.001) {\r
+      break;\r
+    }\r
+\r
+  }\r
+  resultHitRecord.color = resultingColor;\r
+\r
+  return resultHitRecord;\r
+}\r
+fn reflectance(c: f32, refractionIndex: f32) -> f32 {\r
+    // Schlick's approximation for reflectance.\r
+    var r0 = (1.0 - refractionIndex) / (1.0 + refractionIndex);\r
+    r0 = r0 * r0;\r
+    return r0 + (1.0 - r0) * pow((1.0 - c), 5.0);\r
+}\r
+fn hit(ray: Ray, sphere: Sphere, tMin: f32, tMax: f32, \r
+  outHitRecord: ptr<function, HitRecord>) -> bool  {\r
+  let co: vec3<f32> = ray.origin - sphere.position;\r
+  let a: f32 = dot(ray.direction, ray.direction);\r
+  let b: f32 = 2.0 * dot(ray.direction, co);\r
+  let c: f32 = dot(co, co) - sphere.radius * sphere.radius;\r
+  let discriminant: f32 = b * b - 4.0 * a * c;\r
+\r
+  if (discriminant > 0.0) {\r
+\r
+    let t: f32 = (-b - sqrt(discriminant)) / (2 * a);\r
+\r
+    if (t > tMin && t < tMax) {\r
+      (*outHitRecord).t = t;\r
+      (*outHitRecord).position = ray.origin + t * ray.direction;\r
+      (*outHitRecord).normal = normalize(((*outHitRecord).position - sphere.position));\r
+      (*outHitRecord).color = sphere.color;\r
+      (*outHitRecord).material = sphere.material;\r
+      (*outHitRecord).fuzz = sphere.fuzz;\r
+      (*outHitRecord).reflectivity = sphere.reflectivity;\r
+      (*outHitRecord).refractivity = sphere.refractivity;\r
+\r
+      (*outHitRecord).hitAnything = true;\r
+      return true;\r
+    }\r
+  }\r
+  // (*outHitRecord).t = 3.0e+38; // close to infinity on miss\r
+  return false;\r
+}\r
+fn hitTriangle(ray: Ray, tri: Triangle, t_min: f32, t_max: f32, outHitRecord: ptr<function, HitRecord>) -> bool {\r
+    // var rec: HitRecord;\r
+    // rec.hitAnything = false;\r
+\r
+    let edge1 = tri.v1 - tri.v0;\r
+    let edge2 = tri.v2 - tri.v0;\r
+    let h = cross(ray.direction, edge2);\r
+    let a = dot(edge1, h);\r
+\r
+    if (a > -0.000001 && a < 0.000001) { return false; } // Ray is parallel\r
+\r
+    let f = 1.0 / a;\r
+    let s = ray.origin - tri.v0;\r
+    let u = f * dot(s, h);\r
+\r
+    if (u < 0.0 || u > 1.0) { return false; }\r
+\r
+    let q = cross(s, edge1);\r
+    let v = f * dot(ray.direction, q);\r
+\r
+    if (v < 0.0 || u + v > 1.0) { return false; }\r
+\r
+    let t = f * dot(edge2, q);\r
+\r
+    if (t > t_min && t < t_max) {\r
+        (*outHitRecord).t = t;\r
+        (*outHitRecord).position = ray.origin + t * ray.direction;\r
+        (*outHitRecord).normal = tri.normal;\r
+        (*outHitRecord).material = tri.material;\r
+        (*outHitRecord).reflectivity = tri.reflectivity;\r
+        (*outHitRecord).refractivity = tri.refractivity;\r
+\r
+        (*outHitRecord).hitAnything = true;\r
+\r
+        // \r
+        if (renderData.enableCheckerBoard == 1) {\r
+          let scale = 1.0; // Size of checks\r
+          let checker = (floor((*outHitRecord).position.x * scale) + floor((*outHitRecord).position.z * scale)) % 2.0;\r
+          var color = vec3<f32>(0.0);\r
+          if (abs(checker) < 0.001) {\r
+            (*outHitRecord).color  = vec3<f32>(1.0); // White\r
+          } else {\r
+            (*outHitRecord).color  = vec3<f32>(0.0); // Black\r
+          }\r
+        } else {\r
+          (*outHitRecord).color = tri.color;\r
+        }\r
+       \r
+        return true;\r
+    }\r
+    return false;\r
+}\r
+\r
+fn hitBVH(ray: Ray, outHitRecord: ptr<function, HitRecord>) -> bool { // 0.001, 10000\r
+  (*outHitRecord).hitAnything = false;\r
+  // t represents distance to nearest object hit so far. initialized to +infinity\r
+  var closestT: f32 = 3.0e+38; \r
+  var stack: array<u32, 32>; // Max depth of 32 is enough for 2^32 scene objects\r
+  var stackPtr: i32 = 0;\r
+  stack[0] = 0; // Start at root \r
+  let invD = 1.0 / ray.direction; // only 1 division calculation\r
+\r
+  var bvhHitRecord: HitRecord;\r
+  bvhHitRecord.hitAnything = false;\r
+  var leafHitRecord: HitRecord;\r
+  leafHitRecord.hitAnything = false;\r
+  leafHitRecord.t = closestT; // represents the nearest ray-sphere intersection hit\r
+  var nodesTouched = 0u;\r
+  while (stackPtr >= 0) {\r
+    nodesTouched++;\r
+    let nodeIdx: u32 = stack[stackPtr];\r
+    let node: BVHNode = bvh.nodes[nodeIdx];\r
+    stackPtr--;\r
+    \r
+    if (!hitAABB(ray, invD, node.min, node.max, closestT, &bvhHitRecord)) {\r
+      continue; \r
+    } \r
+    if (bvhHitRecord.t > closestT) {\r
+      continue;\r
+    }\r
+    // if (node.objectIndex < -0.0001) { // internal node\r
+    if (node.objectIndex == -1.0) { // internal node\r
+      let left_node = bvh.nodes[u32(node.leftChild)];\r
+      let right_node = bvh.nodes[u32(node.rightChild)];\r
+      var leftHitRecord: HitRecord;\r
+      var rightHitRecord: HitRecord;\r
+      hitAABB(ray, invD, left_node.min, left_node.max, closestT, &leftHitRecord);\r
+      hitAABB(ray, invD, right_node.min, right_node.max, closestT, &rightHitRecord);\r
+      // Push the one that is further away first, so the closer one is popped first\r
+      if (leftHitRecord.t < rightHitRecord.t){\r
+        if (rightHitRecord.t < closestT) { \r
+          stackPtr++; stack[stackPtr] = u32(node.rightChild); \r
+        }\r
+        if (leftHitRecord.t < closestT) { \r
+          stackPtr++; stack[stackPtr] = u32(node.leftChild); \r
+        }\r
+      } else {\r
+        if (rightHitRecord.t < closestT) { \r
+          stackPtr++; stack[stackPtr] = u32(node.rightChild); \r
+        }\r
+        if (leftHitRecord.t < closestT) { \r
+          stackPtr++; stack[stackPtr] = u32(node.leftChild); \r
+        }\r
+      }\r
+      // hitAABB(ray, invD, node.min, node.max, &bvhHitRecord);\r
+      // stackPtr++;\r
+      // stack[stackPtr] = u32(node.rightChild);\r
+      // stackPtr++;\r
+      // stack[stackPtr] = u32(node.leftChild);\r
+      if (stackPtr > 30) { break; }\r
+    } else { // leaf node\r
+      let index = u32(node.objectIndex);\r
+      if (index == 0 || index == 1 ) {\r
+        if (hitTriangle(ray, trianglesData.triangles[index], 0.001, closestT, &leafHitRecord)) {\r
+          (*outHitRecord) = leafHitRecord;\r
+          closestT = leafHitRecord.t;\r
+\r
+        }\r
+      } else {\r
+        if (hit(ray, spheresData.spheres[index-2], 0.001, closestT, &leafHitRecord)) { \r
+        //if ray intersects spherex\r
+        (*outHitRecord) = leafHitRecord;\r
+        closestT = leafHitRecord.t;\r
+      }\r
+      }\r
+      \r
+    }\r
+  }  \r
+  // (*outHitRecord).color = vec3(f32(nodesTouched) / 10.0, 0.0, 0.0);\r
+\r
+  return (*outHitRecord).hitAnything;\r
+}\r
+fn hitAABB(ray: Ray, invD: vec3<f32>, node_min: vec3<f32>, node_max: vec3<f32>,\r
+      closestT: f32, outHitRecord: ptr<function, HitRecord> ) -> bool {\r
+    let t0 = (node_min - ray.origin) * invD;\r
+    let t1 = (node_max - ray.origin) * invD;\r
+    \r
+    let t_min_v = min(t0, t1);\r
+    let t_max_v = max(t0, t1);\r
+    \r
+    let t_min = max(max(t_min_v.x, t_min_v.y), t_min_v.z);\r
+    let t_max = min(min(t_max_v.x, t_max_v.y), t_max_v.z);\r
+    \r
+    let hit_t = max(t_min, 0.0);\r
+    \r
+    if (t_max >= t_min && t_max > 0.0 \r
+      && hit_t < closestT) {\r
+      (*outHitRecord).hitAnything = true;\r
+      (*outHitRecord).t = hit_t;\r
+      return true;\r
+    }\r
+    return false;\r
+}\r
+\r
+\r
+fn pcgHash(input: u32) -> u32 {\r
+    var state = input * 747796405u + 2891336453u;\r
+    var word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;\r
+    return (word >> 22u) ^ word;\r
+}\r
+\r
+// Returns a random float in [0.0, 1.0)\r
+fn randomFloat(seed: ptr<function, u32>) -> f32 {\r
+    *seed = pcgHash(*seed);\r
+    // Divide by 2^32 - 1\r
+    return f32(*seed) / 4294967295.0;\r
+}\r
+\r
+// Returns a random float in [min, max)\r
+fn randomRange(min: f32, max: f32, seed: ptr<function, u32>) -> f32 {\r
+    return min + (max - min) * randomFloat(seed);\r
+}\r
+\r
+fn randomVec3(min: f32, max: f32, seed: ptr<function, u32>) -> vec3<f32> {\r
+    return vec3<f32>(\r
+        randomRange(min, max, seed),\r
+        randomRange(min, max, seed),\r
+        randomRange(min, max, seed)\r
+    );\r
+}\r
+\r
+fn randomUnitVector(seed: ptr<function, u32>) -> vec3<f32> {\r
+    // use a loop with a limit to prevent GPU threads from being blocked\r
+    for (var i = 0; i < 100; i++) {\r
+        let p = randomVec3(-1.0, 1.0, seed);\r
+        let lensq = dot(p,p);\r
+        \r
+        // Check if point is inside the unit sphere but not at the exact center\r
+        if (lensq > 1e-24 && lensq <= 1.0) {\r
+            return p / sqrt(lensq);\r
+        }\r
+    }\r
+    return vec3<f32>(0.0, 1.0, 0.0); // Fallback\r
+}\r
+\r
+\r
+fn randomOnHemisphere(normal: vec3<f32>, seed: ptr<function, u32>) -> vec3<f32> {\r
+    let onUnitSphere = randomUnitVector(seed);\r
+    if (dot(onUnitSphere, normal) > 0.0) {\r
+        return onUnitSphere;\r
+    } else {\r
+        return -onUnitSphere;\r
+    }\r
+}\r
+\r
+`,w=class e{isSupported=!0;static canvas;device;context;textureFormat;computeShaderModule;vertexShaderModule;fragmentShaderModule;scene;sphereDataLength;sphereData;triangleDataLength;triangleData;renderData;cameraData;bvhNodeData;static frameCount=1;static isCheckerBoard;static deltaT=1;static lastFrame;temporalAccumulation=0;toggleTemporalAccumulationBtn=document.getElementById(`temporalAccumulation-btn`);accumulateFrames=0;toggleAccumulateFramesBtn=document.getElementById(`accumulateFrames-btn`);diffuseType;toggleDiffuseTypeBtn=document.getElementById(`diffuseType`);hasGammaCorrection=1;toggleHasGammaCorrectionBtn=document.getElementById(`hasGammaCorrection-btn`);numRayBounces;numRayBouncesSlider=document.getElementById(`bounces`);numRayBouncesSpan=document.getElementById(`bounces-val`);static toggleBVH=0;toggleBVHBtn=document.getElementById(`toggleBVH-btn`);showBVHBoxes=0;toggleShowBVHBoxesBtn=document.getElementById(`showBVHBoxes-btn`);hideRootBVHBox=0;toggleHideRootBVHBoxBtn=document.getElementById(`hideRootBVHBox-btn`);depthTestBVH=0;toggleDepthTestBVHBtn=document.getElementById(`depthBVH-btn`);renderDataBuffer;colorBuffer;sampler;cameraBuffer;spheresBuffer;trianglesBuffer;accumulationBuffer;bvhNodesBuffer;boxVertexBuffer;boxIndexBuffer;boxDepthTexture;depthTexture;updateBindGroups=!1;computeBindGroupLayout;computeBindGroup;textureBindGroupLayout;textureBindGroup;boxBindGroupLayout;boxBindGroup;computePipeline;textureRenderPipeline;textureView;boxPipeline;frameTimeSpan=document.getElementById(`frame-time`);fpsSpan=document.getElementById(`fps`);constructor(t){e.canvas=t}async init(){await this.getGPUDevice()&&(this.configureGPUCanvasContext(),this.loadShaders(),this.registerEventListeners(),this.createScene(),this.configureBuffers(),this.writeBuffers(!0),this.createDepthTexture(),this.configureBindGroups(),this.configurePipeline())}registerEventListeners(){this.toggleTemporalAccumulationBtn==null||this.toggleAccumulateFramesBtn==null||this.toggleDiffuseTypeBtn==null||this.toggleHasGammaCorrectionBtn==null||this.numRayBouncesSlider==null||this.toggleBVHBtn==null||this.toggleShowBVHBoxesBtn==null||this.toggleHideRootBVHBoxBtn==null||this.toggleDepthTestBVHBtn==null||(this.temporalAccumulation=+!!this.toggleTemporalAccumulationBtn.classList.contains(`active`),this.accumulateFrames=+!!this.toggleAccumulateFramesBtn.classList.contains(`active`),this.diffuseType=parseInt(this.toggleDiffuseTypeBtn.value),this.hasGammaCorrection=+!!this.toggleHasGammaCorrectionBtn.classList.contains(`active`),this.numRayBounces=parseInt(this.numRayBouncesSlider.value),this.numRayBouncesSpan.textContent=this.numRayBounces.toString(),this.numRayBouncesSlider.addEventListener(`input`,t=>{let n=t.target;n&&(this.numRayBounces=parseInt(n.value),this.numRayBouncesSpan.textContent=n.value,e.frameCount=1)}),this.showBVHBoxes=+!!this.toggleShowBVHBoxesBtn.classList.contains(`active`),this.hideRootBVHBox=+!!this.toggleHideRootBVHBoxBtn.classList.contains(`active`),this.depthTestBVH=+!!this.toggleDepthTestBVHBtn.classList.contains(`active`),this.toggleTemporalAccumulationBtn.addEventListener(`click`,t=>{t.detail!==0&&(this.toggleTemporalAccumulationBtn?.classList.toggle(`active`),this.temporalAccumulation=+(this.temporalAccumulation==0),e.frameCount=1)}),this.toggleAccumulateFramesBtn.addEventListener(`click`,t=>{t.detail!==0&&(this.toggleAccumulateFramesBtn?.classList.toggle(`active`),this.accumulateFrames=+(this.accumulateFrames==0),e.frameCount=1)}),this.toggleDiffuseTypeBtn.addEventListener(`change`,t=>{let n=t.target;this.diffuseType=parseInt(n.value),e.frameCount=1}),this.toggleHasGammaCorrectionBtn.addEventListener(`click`,e=>{e.detail!==0&&(this.toggleHasGammaCorrectionBtn?.classList.toggle(`active`),this.hasGammaCorrection=+(this.hasGammaCorrection==0))}),this.toggleBVHBtn.addEventListener(`click`,t=>{t.detail!==0&&(this.toggleBVHBtn?.classList.toggle(`active`),e.toggleBVH=+!!this.toggleBVHBtn.classList.contains(`active`),this.toggleBVHBtn.classList.contains(`active`)&&this.scene.rebuildBVH())}),this.toggleShowBVHBoxesBtn.addEventListener(`click`,e=>{e.detail!==0&&(this.toggleShowBVHBoxesBtn?.classList.toggle(`active`),this.showBVHBoxes=+(this.showBVHBoxes==0))}),this.toggleHideRootBVHBoxBtn.addEventListener(`click`,e=>{e.detail!==0&&(this.toggleHideRootBVHBoxBtn?.classList.toggle(`active`),this.hideRootBVHBox=+(this.hideRootBVHBox==0))}),this.toggleDepthTestBVHBtn.addEventListener(`click`,e=>{e.detail!==0&&(this.toggleDepthTestBVHBtn?.classList.toggle(`active`),this.depthTestBVH=+(this.depthTestBVH==0))}))}update(){e.deltaT=performance.now()-e.lastFrame,e.lastFrame=performance.now(),e.frameCount++,this.writeRenderDataBuffer(),this.scene.camera.updatedCamera==1&&(this.scene.camera.update(),this.writeCameraBuffer(!1),this.accumulateFrames==0&&(e.frameCount=1)),x.updatedScene==1&&(this.scene.updateScene(),this.writeSpheresBuffer(!1),this.writeTrianglesBuffer(!1),this.writeBVHNodesBuffer(),this.configureBindGroups(),x.updatedScene=!1,this.accumulateFrames==0&&(e.frameCount=1))}render(){this.update();let t=performance.now(),n=this.device.createCommandEncoder({label:`Basic Comamnd Encoder`}),r=n.beginComputePass();r.setPipeline(this.computePipeline),r.setBindGroup(0,this.computeBindGroup),r.dispatchWorkgroups(Math.floor((e.canvas.width+7)/8),Math.floor((e.canvas.height+7)/8),1),r.end(),this.textureView=this.context.getCurrentTexture().createView();let i=n.beginRenderPass({label:`Basic RenderPass Encoder`,colorAttachments:[{view:this.textureView,clearValue:{r:.5,g:0,b:.25,a:1},loadOp:`clear`,storeOp:`store`}]});i.setPipeline(this.textureRenderPipeline),i.setBindGroup(0,this.textureBindGroup),i.draw(6,2,0,0),this.showBVHBoxes&&(i.setPipeline(this.boxPipeline),i.setBindGroup(0,this.boxBindGroup),i.setVertexBuffer(0,this.boxVertexBuffer),i.setIndexBuffer(this.boxIndexBuffer,`uint16`),i.drawIndexed(24,this.scene.bvhNodes.length)),i.end(),this.device.queue.submit([n.finish()]),this.device.queue.onSubmittedWorkDone().then(()=>{let e=performance.now();this.frameTimeSpan&&(this.frameTimeSpan.innerText=(e-t).toFixed(2).toString()),this.fpsSpan&&(this.fpsSpan.innerText=(1/((e-t)*1e-4)).toFixed(2).toString())}),requestAnimationFrame(()=>this.render())}configurePipeline(){let e=this.device.createPipelineLayout({bindGroupLayouts:[this.computeBindGroupLayout]});this.computePipeline=this.device.createComputePipeline({label:`computePipeline`,layout:e,compute:{module:this.computeShaderModule,entryPoint:`main`}});let t=this.device.createPipelineLayout({bindGroupLayouts:[this.textureBindGroupLayout]});this.textureRenderPipeline=this.device.createRenderPipeline({label:`textureRenderPipeline`,layout:t,vertex:{module:this.vertexShaderModule,entryPoint:`vs`},fragment:{module:this.fragmentShaderModule,entryPoint:`fs`,targets:[{format:this.textureFormat}]}});let n=this.device.createPipelineLayout({bindGroupLayouts:[this.boxBindGroupLayout]});this.boxPipeline=this.device.createRenderPipeline({label:`boxPipeline`,layout:n,vertex:{module:this.vertexShaderModule,entryPoint:`vs_box`,buffers:[{arrayStride:12,attributes:[{shaderLocation:0,offset:0,format:`float32x3`}]}]},fragment:{module:this.fragmentShaderModule,entryPoint:`fs_box`,targets:[{format:this.textureFormat}]},primitive:{topology:`line-list`}})}createDepthTexture(){this.depthTexture&&this.depthTexture.destroy(),this.depthTexture=this.device.createTexture({size:[e.canvas.width,e.canvas.height],format:`depth24plus`,usage:GPUTextureUsage.RENDER_ATTACHMENT})}configureBindGroups(){this.computeBindGroupLayout=this.device.createBindGroupLayout({entries:[{binding:0,visibility:GPUShaderStage.COMPUTE,storageTexture:{access:`write-only`,format:`rgba8unorm`,viewDimension:`2d`}},{binding:1,visibility:GPUShaderStage.COMPUTE,buffer:{type:`uniform`}},{binding:2,visibility:GPUShaderStage.COMPUTE,buffer:{type:`read-only-storage`,hasDynamicOffset:!1}},{binding:3,visibility:GPUShaderStage.COMPUTE,buffer:{type:`read-only-storage`,hasDynamicOffset:!1}},{binding:4,visibility:GPUShaderStage.COMPUTE,buffer:{type:`uniform`}},{binding:5,visibility:GPUShaderStage.COMPUTE,buffer:{type:`storage`}},{binding:6,visibility:GPUShaderStage.COMPUTE,buffer:{type:`read-only-storage`,hasDynamicOffset:!1}},{binding:7,visibility:GPUShaderStage.COMPUTE,storageTexture:{access:`write-only`,format:`r32float`,viewDimension:`2d`}}]}),this.computeBindGroup=this.device.createBindGroup({layout:this.computeBindGroupLayout,entries:[{binding:0,resource:this.colorBuffer},{binding:1,resource:this.cameraBuffer},{binding:2,resource:this.spheresBuffer},{binding:3,resource:this.trianglesBuffer},{binding:4,resource:{buffer:this.renderDataBuffer}},{binding:5,resource:{buffer:this.accumulationBuffer}},{binding:6,resource:{buffer:this.bvhNodesBuffer}},{binding:7,resource:this.boxDepthTexture}]}),this.textureBindGroupLayout=this.device.createBindGroupLayout({entries:[{binding:0,visibility:GPUShaderStage.FRAGMENT,sampler:{}},{binding:1,visibility:GPUShaderStage.FRAGMENT,texture:{}},{binding:2,visibility:GPUShaderStage.VERTEX,buffer:{type:`read-only-storage`,hasDynamicOffset:!1}}]}),this.textureBindGroup=this.device.createBindGroup({layout:this.textureBindGroupLayout,entries:[{binding:0,resource:this.sampler},{binding:1,resource:this.colorBuffer.createView()},{binding:2,resource:{buffer:this.bvhNodesBuffer}}]}),this.boxBindGroupLayout=this.device.createBindGroupLayout({label:`boxBindGroupLayout`,entries:[{binding:0,visibility:GPUShaderStage.FRAGMENT,sampler:{}},{binding:2,visibility:GPUShaderStage.VERTEX|GPUShaderStage.FRAGMENT,buffer:{type:`uniform`}},{binding:3,visibility:GPUShaderStage.VERTEX|GPUShaderStage.FRAGMENT,buffer:{type:`uniform`}},{binding:4,visibility:GPUShaderStage.VERTEX,buffer:{type:`read-only-storage`,hasDynamicOffset:!1}},{binding:5,visibility:GPUShaderStage.FRAGMENT,texture:{sampleType:`unfilterable-float`,viewDimension:`2d`}}]}),this.boxBindGroup=this.device.createBindGroup({label:`boxBindGroup`,layout:this.boxBindGroupLayout,entries:[{binding:0,resource:this.sampler},{binding:2,resource:this.cameraBuffer},{binding:3,resource:{buffer:this.renderDataBuffer}},{binding:4,resource:{buffer:this.bvhNodesBuffer}},{binding:5,resource:this.boxDepthTexture.createView()}]}),this.updateBindGroups=!1}writeRenderDataBuffer(){this.renderData=new Uint32Array([e.canvas.width,e.canvas.height,e.frameCount,this.temporalAccumulation,this.diffuseType,this.hasGammaCorrection,this.showBVHBoxes,this.hideRootBVHBox,this.depthTestBVH,e.toggleBVH,this.numRayBounces,e.isCheckerBoard]),this.device.queue.writeBuffer(this.renderDataBuffer,0,this.renderData)}writeCameraBuffer(e){e==1&&(this.cameraData=new Float32Array(48)),this.cameraData.set(this.scene.camera.position,0),this.cameraData[3]=0,this.cameraData.set(this.scene.camera.forwards,4),this.cameraData[7]=0,this.cameraData.set(this.scene.camera.right,8),this.cameraData[11]=0,this.cameraData.set(this.scene.camera.up,12),this.cameraData[15]=0,this.cameraData.set(this.scene.camera.viewProjectionMatrix,16),this.scene.camera.inverseViewProjectionMatrix&&this.cameraData.set(this.scene.camera.inverseViewProjectionMatrix,32),this.device.queue.writeBuffer(this.cameraBuffer,0,this.cameraData)}writeSpheresBuffer(e){this.sphereDataLength=16+48*this.scene.spheres.length,e==1&&(this.sphereData=new ArrayBuffer(this.sphereDataLength)),this.sphereData.byteLength!==this.sphereDataLength&&(this.sphereData=new ArrayBuffer(this.sphereDataLength),this.spheresBuffer.destroy(),this.spheresBuffer=this.device.createBuffer({size:this.sphereDataLength,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST}),this.updateBindGroups=!0);let t=new Float32Array(this.sphereData),n=new Uint32Array(this.sphereData),r=new Uint32Array(1);t[0]=this.scene.skyColor[0],t[1]=this.scene.skyColor[1],t[2]=this.scene.skyColor[2],r[0]=this.scene.spheres.length,n[3]=r[0];for(let e=0;e<this.scene.spheres.length;e++){let n=4+e*12,r=this.scene.spheres[e];t[n+0]=r.position[0],t[n+1]=r.position[1],t[n+2]=r.position[2],t[n+3]=r.radius,t[n+4]=r.color[0],t[n+5]=r.color[1],t[n+6]=r.color[2],t[n+7]=r.material,t[n+8]=r.fuzziness,t[n+9]=r.reflectivity,t[n+10]=r.refractivity}this.device.queue.writeBuffer(this.spheresBuffer,0,this.sphereData,0,this.sphereData.byteLength)}writeTrianglesBuffer(e){this.triangleDataLength=16+80*this.scene.triangles.length,e==1&&(this.triangleData=new ArrayBuffer(this.triangleDataLength));let t=new Float32Array(this.triangleData),n=new Uint32Array(this.triangleData),r=new Uint32Array(1);r[0]=this.scene.triangles.length,n[0]=r[0];for(let e=0;e<this.scene.triangles.length;e++){let n=4+e*20,r=this.scene.triangles[e];t[n+0]=r.v0[0],t[n+1]=r.v0[1],t[n+2]=r.v0[2],t[n+3]=r.reflectivity,t[n+4]=r.v1[0],t[n+5]=r.v1[1],t[n+6]=r.v1[2],t[n+7]=r.refractivity,t[n+8]=r.v2[0],t[n+9]=r.v2[1],t[n+10]=r.v2[2],t[n+11]=r.material,t[n+12]=r.color[0],t[n+13]=r.color[1],t[n+14]=r.color[2],t[n+15]=0,t[n+16]=r.normal[0],t[n+17]=r.normal[1],t[n+18]=r.normal[2],t[n+19]=0}this.device.queue.writeBuffer(this.trianglesBuffer,0,this.triangleData,0,this.triangleData.byteLength)}writeBVHNodesBuffer(){let e=4+12*this.scene.bvhNodes.length;this.bvhNodeData=new Float32Array(e),this.bvhNodeData[0]=this.scene.bvhNodes.length,this.bvhNodeData[1]=x.bvhMaxDepth;for(let e=2;e<4;e++)this.bvhNodeData[e]=0;for(let e=0;e<this.scene.bvhNodes.length;e++){let t=4+12*e;this.bvhNodeData[t+0]=this.scene.bvhNodes[e].min[0],this.bvhNodeData[t+1]=this.scene.bvhNodes[e].min[1],this.bvhNodeData[t+2]=this.scene.bvhNodes[e].min[2],this.bvhNodeData[t+3]=this.scene.bvhNodes[e].leftChild,this.bvhNodeData[t+4]=this.scene.bvhNodes[e].max[0],this.bvhNodeData[t+5]=this.scene.bvhNodes[e].max[1],this.bvhNodeData[t+6]=this.scene.bvhNodes[e].max[2],this.bvhNodeData[t+7]=this.scene.bvhNodes[e].skipLink,this.bvhNodeData[t+8]=this.scene.bvhNodes[e].hasRoot,this.bvhNodeData[t+9]=this.scene.bvhNodes[e].rightChild,this.bvhNodeData[t+10]=this.scene.bvhNodes[e].objectIdx,this.bvhNodeData[t+11]=this.scene.bvhNodes[e].depth}let t=this.bvhNodeData.byteLength;this.bvhNodesBuffer.size!==t&&(this.bvhNodesBuffer=this.device.createBuffer({size:t,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST}),this.updateBindGroups=!0),this.device.queue.writeBuffer(this.bvhNodesBuffer,0,this.bvhNodeData)}writeBuffers(e){this.writeCameraBuffer(e),this.writeRenderDataBuffer(),this.writeSpheresBuffer(e),this.writeTrianglesBuffer(e),this.writeBVHNodesBuffer(),this.updateBindGroups==1&&this.configureBindGroups()}configureBuffers(){this.colorBuffer=this.device.createTexture({label:`colorBuffer`,size:{width:e.canvas.width,height:e.canvas.height},format:`rgba8unorm`,usage:GPUTextureUsage.COPY_DST|GPUTextureUsage.STORAGE_BINDING|GPUTextureUsage.TEXTURE_BINDING}),this.boxDepthTexture=this.device.createTexture({label:`boxDepthTexture`,size:{width:e.canvas.width,height:e.canvas.height},format:`r32float`,usage:GPUTextureUsage.STORAGE_BINDING|GPUTextureUsage.COPY_DST|GPUTextureUsage.TEXTURE_BINDING}),this.sampler=this.device.createSampler({label:`sampler`,addressModeU:`repeat`,addressModeV:`repeat`,magFilter:`linear`,minFilter:`nearest`,mipmapFilter:`nearest`,maxAnisotropy:1}),this.cameraBuffer=this.device.createBuffer({label:`cameraBuffer`,size:192,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST}),this.spheresBuffer=this.device.createBuffer({label:`spheresBuffer`,size:this.sphereDataLength,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST}),this.trianglesBuffer=this.device.createBuffer({label:`trianglesBuffer`,size:this.triangleDataLength,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST}),this.renderDataBuffer=this.device.createBuffer({label:`renderDataBuffer`,size:48,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST}),this.accumulationBuffer=this.device.createBuffer({label:`accumulationBuffer`,size:e.canvas.width*e.canvas.height*16,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_SRC}),this.bvhNodesBuffer=this.device.createBuffer({label:`bvhNodesBuffer`,size:12+48*this.scene.bvhNodes.length,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});let t=new Float32Array([0,0,0,1,0,0,1,1,0,0,1,0,0,0,1,1,0,1,1,1,1,0,1,1]),n=new Uint16Array([0,1,1,2,2,3,3,0,4,5,5,6,6,7,7,4,0,4,1,5,2,6,3,7]);this.boxVertexBuffer=this.device.createBuffer({size:t.byteLength,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST,mappedAtCreation:!0}),new Float32Array(this.boxVertexBuffer.getMappedRange()).set(t),this.boxVertexBuffer.unmap(),this.boxIndexBuffer=this.device.createBuffer({size:n.byteLength,usage:GPUBufferUsage.INDEX|GPUBufferUsage.COPY_DST,mappedAtCreation:!0}),new Uint16Array(this.boxIndexBuffer.getMappedRange()).set(n),this.boxIndexBuffer.unmap()}createScene(){this.scene=new x,this.sphereDataLength=16+48*this.scene.spheres.length,this.triangleDataLength=16+80*this.scene.triangles.length}loadShaders(){this.computeShaderModule=this.device.createShaderModule({label:`Compute Shader`,code:C}),this.vertexShaderModule=this.device.createShaderModule({label:`Vertex Shader`,code:S}),this.fragmentShaderModule=this.device.createShaderModule({label:`Fragment Shader`,code:S})}configureGPUCanvasContext(){this.context=e.canvas.getContext(`webgpu`),this.textureFormat=navigator.gpu.getPreferredCanvasFormat(),this.context.configure({device:this.device,format:this.textureFormat,alphaMode:`premultiplied`})}async getGPUDevice(){if(!navigator.gpu)return this.fallback(`WebGPU is not supported on this browser`),this.isSupported=!1,!1;let e=await(await navigator.gpu.requestAdapter())?.requestDevice();return!e||e==null?(this.fallback(`WebGPU is not supported on this browser`),this.isSupported=!1,!1):(this.device=e,!0)}fallback(t){let n=document.getElementById(`fallback`);n.textContent=t,e.canvas.hidden=!0}},T=new w(document.getElementById(`GLCanvas`));T.init().then(()=>{T.isSupported&&T.render()});</script>
+  <style rel="stylesheet" crossorigin>:root{--text:#6b6375;--text-h:#08060d;--bg:#fff;--border:#e5e4e7;--active-bg:#afffba;--code-bg:#f4f3ec;--accent:#aa3bff;--accent-bg:#aa3bff1a;--accent-border:#aa3bff80;--social-bg:#f4f3ec80;--shadow:#0000001a 0 10px 15px -3px, #0000000d 0 4px 6px -2px;--sans:system-ui, "Segoe UI", Roboto, sans-serif;--heading:system-ui, "Segoe UI", Roboto, sans-serif;--mono:ui-monospace, Consolas, monospace;font:18px/145% var(--sans);letter-spacing:.18px;--lightningcss-light:initial;--lightningcss-dark: ;color-scheme:light dark;color:var(--text);background:var(--bg);font-synthesis:none;text-rendering:optimizelegibility;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}@media (prefers-color-scheme:dark){:root{--lightningcss-light: ;--lightningcss-dark:initial}}@media (width<=1024px){:root{font-size:16px}}@media (prefers-color-scheme:dark){:root{--text:#9ca3af;--text-h:#f3f4f6;--bg:#16171d;--border:#fff;--active-bg:#073a00;--code-bg:#1f2028;--accent:#c084fc;--accent-bg:#c084fc26;--accent-border:#c084fc80;--social-bg:#2f303a80;--shadow:#0006 0 10px 15px -3px, #00000040 0 4px 6px -2px}}body{margin:0}.toggle-btn{background-color:var(--bg);margin-top:.3rem;padding:.4rem}.toggle-btn.active{background-color:var(--active-bg)}#container{justify-content:center;align-items:flex-start;gap:.7rem;margin-top:.8rem;display:flex}#canvas-container{flex-direction:column;justify-content:center;display:flex}#controls{font-size:clamp(.2rem,1vw,1rem)}.control-group{border-color:var(--border);border-style:solid;border-width:1px;margin-top:.5rem;padding:.5rem}.control-group h3{text-align:center;margin:0 0 .2rem}#diagnostics{text-align:right;font-size:clamp(.2rem,.8vw,1rem)}#diffuseType{margin-bottom:2rem}.range{width:100%}#fallback:empty{display:none}details{border-color:var(--border);cursor:pointer;border-style:solid;border-width:1px;margin:.5rem;padding:.5rem;font-weight:700}#object-controls{min-width:19rem}h3{font-family:var(--heading)}li{flex-wrap:wrap;justify-content:space-between;align-items:center;gap:.5rem;margin-bottom:.4rem;display:flex}li>input[type=range]{flex:120px}li>span{text-align:right;min-width:5ch;font-family:var(--mono)}
+/*$vite$:1*/</style>
+</head>
+<body>
+<div id="container">
+  <div id="diagnostics">
+
+    <h4>ms / frame: <span id="frame-time"></span> ms</h4>
+    <h4>Frames / Second: <span id="fps"></span></h4>
+    <div id="object-controls" class="control-group">
+      <h3>Object Controls</h3>
+      
+
+    </div>
+    
+  </div>
+  <div id="canvas-container">
+    <h1 id="fallback"></h1>
+
+    <canvas id="GLCanvas" width="800" height="600"></canvas>
+    
+    <div class="control-group">
+      <h3>Camera Controls</h3>
+      <label for="fov">Field of View: <span id="fov-val"></span></label> </br>
+      <input type="range" id="fov" class="range" name="fov" min="60" max="120" value="90">
+      <label for="sens">Mouse Sensitivity: <span id="sens-val"></span></label> </br>
+      <input type="range" id="sens" class="range" name="sens" min="0.0001" max="0.01" step= "0.0001" value="0.004"></br>
+      <button id="reset-camera">Reset Camera</button >
+    </div>
+
+  </div>
+  <div id="controls">
+
+    <div class="control-group">
+      <h3>BVH</h3>
+      <button id="toggleBVH-btn" class="toggle-btn ">Toggle BVH</button> </d>
+
+      <h3>BVH Visual</h3>
+      <button id="showBVHBoxes-btn" class="toggle-btn ">Toggle BVH Boxes Visual</button>
+      <button id="hideRootBVHBox-btn" class="toggle-btn ">Hide Root BVH Boxes</button> </br>
+      <button id="depthBVH-btn" class="toggle-btn active">Depth test on BVH Boxes</button> 
+    </div>
+    <div class="control-group">
+      <h3>Acceleration Structures</h3>
+      <button id="temporalAccumulation-btn" class="toggle-btn ">Toggle Temporal Accumulation</button>
+      <button id="accumulateFrames-btn" class="toggle-btn">Accumulate Frames</button>
+
+     
+    </div>
+    <div class="control-group">
+      <h3>Scene Controls</h3>
+      <input type="radio" id="scene1" name="scene" value="1" checked>
+      <label for="scene">Scene 1</label>
+
+      </br>
+      <input type="radio" id="scene2" name="scene" value="2" >
+      <label for="scene">Scene 2</label> </br>
+      <label for="numSpheres">Number of Spheres: <span id="numSpheres-val"></span></label> </br>
+      <input type="range" id="numSpheres" class="range" name="numSpheres" min="2" max="500" value="5">
+    </div>
+  
+    <div class="control-group">
+      <label for="diffuseType">Lighting: </label>
+      <br/>
+      <button id="hasGammaCorrection-btn" class="toggle-btn active">Toggle Gamma Correction</button>
+      <br/>
+      <div>
+      Sky Color: <input type="color" id="skyColorInput" >
+      <button id="reset-skyColor">Reset</button >
+    </div>
+      <select name="diffuseType" id="diffuseType">
+        <option value="0" selected>Simple Diffuse</option>
+        <option value="1">Lambertian</option>
+
+      </select>
+      <div class="control-group">
+        <label for="bounces">Number of Ray Bounces: <span id="bounces-val"></span></label> </br>
+        <input type="range" id="bounces" class="range" name="bounces" min="1" max="100" value="10">
+      </div>
+    </div>
+    
+  </div>
+</div>
+</body>
+
+</html>
