@@ -1153,7 +1153,7 @@ export class Renderer {
     const device = await adapter?.requestDevice();
 
     if (!device || device == null) {
-      this.fallback("WebGPU is not supported on this browser");
+      this.fallback("Make sure WebGPU feature flag is turned on for this browser1");
       this.isSupported = false;
       return false;
     }
