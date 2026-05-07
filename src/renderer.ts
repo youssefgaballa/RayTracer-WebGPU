@@ -204,6 +204,7 @@ export class Renderer {
 
       const target = event.target as HTMLSelectElement;
       this.diffuseType = parseInt(target.value);
+      Renderer.frameCount = 1;
     });
     this.toggleHasGammaCorrectionBtn.addEventListener('click', (event: MouseEvent) => {
       if (event.detail === 0) return; 
@@ -263,6 +264,7 @@ export class Renderer {
         Renderer.frameCount = 1;
       }
     }
+
     if (Scene.updatedScene ==  true) {
       this.scene.updateScene();
       this.writeSpheresBuffer(false);
@@ -271,7 +273,6 @@ export class Renderer {
       this.writeBVHNodesBuffer();
       this.configureBindGroups();
       Scene.updatedScene = false;
-      
       if (this.accumulateFrames == 0){
         Renderer.frameCount = 1;
       }

@@ -85,17 +85,13 @@ export class Triangle {
   }
 
   public increaseWidth(newWidth: number) {
-    // edge12 and edge02 have length equal to old width
-    //edge01 is hypotenuse. since side lengths are equal, just scale by sqrt(2)
-   // 1. Identify the edges meeting at the corner v2
-    // edge20 is one side of the quad, edge21 is the other
+    // edge from v1 to v2 and edge from v0 to v2 have length equal to old width
 
     if (this.width < 0.000001) return;
 
-    // 2. Calculate scaling factor
     let scale = newWidth / this.width;
 
-    // 3. Scale the side vectors
+    // Scale the side vectors by the new width
     vec3.scale(this.v0, this.v0, scale);
     vec3.scale(this.v1, this.v1, scale);
     vec3.scale(this.v2, this.v2, scale);

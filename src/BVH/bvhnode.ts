@@ -1,3 +1,4 @@
+import { debug } from "../main";
 import { Scene } from "../scene";
 import { Sphere } from "../sphere";
 import  { Triangle } from "../triangle";
@@ -87,26 +88,33 @@ export class BVHNodeObject {
       let bestAxis = -1;
       let bestSplitIndex = -1;
       let minCost = Number.POSITIVE_INFINITY;
-  
+      const testIndices = objectIndices.slice(start, end);
+
+      // if (debug) console.log("---------",start, end, objectIndices, "testSegment", testSegment)
       // Loop through all 3 axes to find the cheapest split
       for (let axis = 0; axis < 3; axis++) {
         
-        /*
-          Sorts the objectIndices in order of their bounding box's center
-        */
-        const testSegment = objectIndices.slice(start, end).sort((a, b) => {
-          return objects[a].bbox.center()[axis] - objects[b].bbox.center()[axis];
-        });
   
+        /*
+          loop through each possible split and calculate
+          left and right child bbox surface areas to find the split
+          with left and right child bounding boxes having the lowest total surface area
+        */
         // test to find the minimum Surface Area Heuristic cost
+        // if (debug) console.log("----axis", axis);
         for (let i = 1; i < objectSpan; i++) {
           const leftBox = aabb.noArg();
           const rightBox = aabb.noArg();
           
           // Build boxes for the two potential children
-          for (let j = 0; j < i; j++) leftBox.expand(objects[testSegment[j]].bbox);
-          for (let j = i; j < objectSpan; j++) rightBox.expand(objects[testSegment[j]].bbox);
-  
+          for (let j = 0; j < i; j++) {
+            leftBox.expand(objects[testIndices[j]].bbox);
+          }
+          for (let j = i; j < objectSpan; j++) {
+            rightBox.expand(objects[testIndices[j]].bbox);
+          }
+          // if (debug) console.log("index", i, leftBox, rightBox);
+
           // Cost = Area(Left) * Objects(Left) + Area(Right) * Objects(Right)
           const cost = leftBox.surfaceArea() * i + rightBox.surfaceArea() * (objectSpan - i);
   
@@ -124,12 +132,13 @@ export class BVHNodeObject {
         bestSplitIndex = start + Math.floor(objectSpan / 2);
       }
   
-      const finalSortedSegment = objectIndices.slice(start, end).sort((a, b) => {
+      const sortedIndices = objectIndices.slice(start, end).sort((a, b) => {
         return objects[a].bbox.center()[bestAxis] - objects[b].bbox.center()[bestAxis];
       });
+      if (debug) console.log(bestAxis, sortedIndices)
   
       for (let i = 0; i < objectSpan; i++) {
-        objectIndices[start + i] = finalSortedSegment[i];
+        objectIndices[start + i] = sortedIndices[i];
       }
   
       this.leftChild = new BVHNodeObject(objects, objectIndices, start, bestSplitIndex, recursionDepth + 1);
@@ -200,7 +209,7 @@ export class BVHNodeObject {
       flatNodes.push(flatNode);
   
       if (!isLeaf) {
-        // Internal Node logic
+        
         flatNode.leftChild = currentIndex + 1;
         traverse(node.leftChild!);
         

@@ -37,8 +37,8 @@ struct CameraData {// 64 + 64 + 64  = 128 bytes
 } 
 
 struct RenderData { // 4*11 = 44 bytes
-  image_width: u32,
-  image_height: u32,
+  imageWidth: u32,
+  imageHeight: u32,
   frameCount: u32,
   temporalAccumulation: u32,
   diffuseType: u32,
@@ -51,8 +51,8 @@ struct RenderData { // 4*11 = 44 bytes
   enableCheckerBoard: u32
 }
 
-@group(0) @binding(0) var screen_sampler : sampler; // used in textureRenderPipeline
-@group(0) @binding(1) var color_buffer : texture_2d<f32>; // used in boxPipeline and textureRenderPipeline
+@group(0) @binding(0) var screenSampler : sampler; // used in textureRenderPipeline
+@group(0) @binding(1) var colorBuffer : texture_2d<f32>; // used in boxPipeline and textureRenderPipeline
 
 @group(0) @binding(2) var<uniform> cameraData: CameraData; // used in boxPipeline
 @group(0) @binding(3) var<uniform> renderData : RenderData; // used in boxPipeline
@@ -66,22 +66,22 @@ struct BoxOutput {
     @location(1) worldPosition : vec3<f32>, // <--- Add this
 }
 struct VertexInput {
-    @location(0) unit_pos: vec3<f32>,
-    @builtin(instance_index) i_idx: u32, // ranges from 0 to bvh.numNodes - 1
+    @location(0) unitCubePosition: vec3<f32>,
+    @builtin(instance_index) instanceIndex: u32, // ranges from 0 to bvh.numNodes - 1
 }
 @vertex
 fn vs_box(in: VertexInput) -> BoxOutput {
-  let node: BVHNode = bvh.nodes[in.i_idx];
+  let node: BVHNode = bvh.nodes[in.instanceIndex];
   
   // Transform unit cube corner to world space
-  let worldPosition = node.min + in.unit_pos * (node.max - node.min);
+  let worldPosition = node.min + in.unitCubePosition * (node.max - node.min);
   // Camera Transformation
   let view_dir = worldPosition - cameraData.cameraPos;
   let view_z = dot(view_dir, cameraData.cameraForwards);
   let view_x = dot(view_dir, cameraData.cameraRight);
   let view_y = dot(view_dir, cameraData.cameraUp);
 
-  let aspect = f32(renderData.image_width) / f32(renderData.image_height);
+  let aspect = f32(renderData.imageWidth) / f32(renderData.imageHeight);
   let near = 0.1;
   let zFar = 3000.0;
   var out: BoxOutput;
@@ -114,9 +114,7 @@ fn vs_box(in: VertexInput) -> BoxOutput {
 }
 
 @fragment
-fn fs_box(
-  in: BoxOutput, 
-  ) -> @location(0) vec4<f32> {
+fn fs_box(in: BoxOutput) -> @location(0) vec4<f32> {
 
   if (renderData.depthTestBVH == 1) {
     // sphere hit depth (boxDepthTexture) is written by compute texture
@@ -140,9 +138,12 @@ fn fs_box(
     return vec4<f32>(in.Color, 1.0);
 
   }
-  
 
 }
+
+/*
+  Simply output the sampled texture that the compute shader wrote to
+*/
 struct VertexOutput {
     @builtin(position) Position : vec4<f32>,
     @location(0) TexCoord : vec2<f32>,
@@ -150,6 +151,7 @@ struct VertexOutput {
 @vertex
 fn vs(@builtin(vertex_index) VertexIndex: u32,
   @builtin(instance_index) InstanceIndex: u32) -> VertexOutput {
+ 
  
   var positions = array<vec2<f32>, 6>(
     vec2<f32>( 1.0,  1.0),
@@ -177,5 +179,5 @@ fn vs(@builtin(vertex_index) VertexIndex: u32,
 
 @fragment
 fn fs(@location(0) TexCoord : vec2<f32>) -> @location(0) vec4<f32> {
-  return textureSample(color_buffer, screen_sampler, TexCoord);
+  return textureSample(colorBuffer, screenSampler, TexCoord);
 }

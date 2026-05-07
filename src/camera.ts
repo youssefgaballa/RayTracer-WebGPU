@@ -1,5 +1,4 @@
 import { mat4, vec3 } from "gl-matrix";
-import { debug } from "./main";
 import { Interval } from "./BVH/interval";
 import { Renderer } from "./renderer";
 type keysPressedType = {
@@ -78,19 +77,14 @@ export class Camera {
   };
   mouseActive: boolean = false;
   /*
-    Need hasMoved boolean so that when it is true,
+    Need updatedCamera boolean so that when it is true,
     the accumulation buffer is cleared and the boolean is reset to false.
     This way the accumulation buffer doesnt contain data from previous frames in which
     the camera is in a different position
   */
   public updatedCamera: boolean = false;
   private debug0 = false;
-  /*
-    When I click on the canvas, sometimes the first invocation of the
-    movemove event causes the cammera to snap to a random position.
-    This boolean is needed to skip first invokation of mousemove
-  */
-  // secondMouseMove: boolean = false;
+
   /*
   When I click on the canvas, the pointer lock function call requestPointerLock needs to be 
   awaited. We must only set isPointerLocked to true after this function is done.
@@ -164,19 +158,21 @@ export class Camera {
 
     // in wgsl, rows are columns for matricies (inverted)
     this.projectionMatrix = new Float32Array([
-      f / aspect, 0,      0,                           0, // column 0
-      0,          f,      0,                           0, // colun 1
-      0,          0,  -(zFar) * rangeInv,           -1,      // column 2
-      0,          0, -2*(zFar * zNear)*rangeInv, 0        // column 3
+      f / aspect, 0,          0                ,  0, // column 0
+      0,          f,          0                ,  0, // column 1
+      0,          0,  -(zFar) * rangeInv       , -1, // column 2
+      0,          0, -2*(zFar * zNear)*rangeInv,  0  // column 3
     ]);
   
     this.viewMatrix = new Float32Array([
-      this.right[0],    this.up[0],    -this.forwards[0], 0, // 0 1 2 3 - colun 1
-      this.right[1],    this.up[1],    -this.forwards[1], 0, // 4 5 6 7
-      this.right[2],    this.up[2],    -this.forwards[2], 0, // 8 9 10 11
-      -vec3.dot(this.right, this.position), 
-      -vec3.dot(this.up, this.position), 
-      vec3.dot(this.forwards, this.position), 1             // 12 13 14 15
+      this.right[0],    this.up[0],    -this.forwards[0], 0, // 0 1 2 3    - column 0
+      this.right[1],    this.up[1],    -this.forwards[1], 0, // 4 5 6 7    - column 1
+      this.right[2],    this.up[2],    -this.forwards[2], 0, // 8 9 10 11  - column 2
+      // column 3
+      -vec3.dot(this.right, this.position), //  12
+      -vec3.dot(this.up, this.position),    // 13
+      vec3.dot(this.forwards, this.position), //14
+      1                                  // 15 
   ]);
 
     if (!this.debug0) {
@@ -191,9 +187,6 @@ export class Camera {
   
     this.inverseViewProjectionMatrix = mat4.create();
     mat4.invert(this.inverseViewProjectionMatrix, this.viewProjectionMatrix);
-
-
-
   }
 
   update() {
@@ -250,32 +243,30 @@ export class Camera {
       if (!this.isPointerLocked) return;
       const key = event.key;
       event.preventDefault();
-      if (key == "w") {
+
+      if (key == "w" || key == "W") {
         this.keysPressed.w = true;
         this.updatedCamera = true;
-      } else if (key == "d") {
+      } else if (key == "d" || key == "D") {
         this.keysPressed.d = true;
         this.updatedCamera = true;
-      } else if (key == "s") {
+      } else if (key == "s" || key == "S") {
         this.keysPressed.s = true;
         this.updatedCamera = true;
-      } else if (key == "a") {
+      } else if (key == "a" || key == "A") {
         this.keysPressed.a = true;
         this.updatedCamera = true;
       } else if (key == " ") {
         this.keysPressed.up = true;
         this.updatedCamera = true;
-      }  else if (key == "c") {
+      } else if (key == "c" || key == "C" 
+        || key === "Control" || event.ctrlKey == true) {
         this.keysPressed.down = true;
         this.updatedCamera = true;
-      } else if (key == "Shift") {
+      }  else if (key == "Shift") {
         this.speed = this.speeds.fast
       }
-      if (event.ctrlKey == true) {
-        this.keysPressed.down = true;
-        this.updatedCamera = true;
-      }   
-      
+      console.log(this.keysPressed.down);
 
     });
   
@@ -283,24 +274,23 @@ export class Camera {
       if (!this.isPointerLocked) return;
       event.preventDefault();
       const key = event.key;
-      if (key == "w") {
+      if (key == "w" || key == "W") {
         this.keysPressed.w = false;
-      } else if (key == "d") {
+      } else if (key == "d" || key == "D") {
         this.keysPressed.d = false;
-      } else if (key == "s") {
+      } else if (key == "s" || key == "S") {
         this.keysPressed.s = false;
-      } else if (key == "a") {
+      } else if (key == "a" || key == "A") {
         this.keysPressed.a = false;
       } else if (key == " ") {
         this.keysPressed.up = false;
-      } else if (key == "c") {
+      } else if (key == "c" || key == "C" 
+        || key === "Control" || event.ctrlKey == true) {
         this.keysPressed.down = false;
-      } else if (key == "Shift") {
+      }  else if (key == "Shift") {
         this.speed = this.speeds.normal
       }
-      if (key === "Control") {
-        this.keysPressed.down = false;
-      }
+
       // if (event.ctrlKey == false) {
       //   this.keysPressed.down = false;
       // }   
@@ -390,8 +380,8 @@ export class Camera {
     this.keysPressed.a = this.initialTransform.keysPressed.a;
     this.keysPressed.s = this.initialTransform.keysPressed.s;
     this.keysPressed.d = this.initialTransform.keysPressed.d;
-     this.keysPressed.up = this.initialTransform.keysPressed.up;
-     this.keysPressed.down = this.initialTransform.keysPressed.down;
+    this.keysPressed.up = this.initialTransform.keysPressed.up;
+    this.keysPressed.down = this.initialTransform.keysPressed.down;
     this.mouseActive = this.initialTransform.mouseActive;
 
 

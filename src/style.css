@@ -133,17 +133,15 @@ details {
 
 li {
   display: flex;
-  flex-wrap: wrap;       /* Allow wrapping on small screens */
-  justify-content: space-between; /* Space text and slider apart */
+  flex-wrap: wrap;       
+  justify-content: space-between;
   align-items: center;
   gap: 0.5rem;
   margin-bottom: 0.4rem;
 }
 
 li > input[type="range"] {
-  flex: 1 1 120px;       /* Allow slider to grow, but give it a base min-width */
-  min-width: 0;          /* Crucial: allows flex items to shrink below content size */
-  max-width: 100%;
+  flex: 1 1 120px;      
 }
 
 li > span {

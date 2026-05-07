@@ -13,9 +13,9 @@
 - [ ] Demonstrates key features of your project
 
 ### Report (1,200 words) in report/report.pdf
-- [ ] Project description and graphics techniques used
-- [ ] Steps taken and development process
-- [ ] Challenges encountered and solutions
+- [x] Project description and graphics techniques used
+- [x] Steps taken and development process
+- [x] Challenges encountered and solutions
 - [ ] Results with screenshots
 - [ ] Effort Justification: How you met the 1.5x effort level
       - What makes this more substantial than a typical assignment?

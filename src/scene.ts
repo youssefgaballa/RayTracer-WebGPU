@@ -164,12 +164,13 @@ export class Scene {
   public createRandomSpheres(num: number) {
     let i = 2;
     this.addFloor();
+    const scale = Math.max(1.0, num * 0.05);
     for (let j = 0; j < num; j++) {
       this.addSphere(new Sphere(
         [
-          this.getRandomFloat(-10, 10), // Range: [-10.0, 10.0)
-          this.getRandomFloat(2.0, 10), // Range: [2.0, 10.0)
-          this.getRandomFloat(-10, 10), // Range: [-10.0, 10.0)
+          this.getRandomFloat(-10 * scale, 10* scale), // Range: [-10.0, 10.0)
+          this.getRandomFloat(2.0, 10* scale), // Range: [2.0, 10.0)
+          this.getRandomFloat(-10* scale, 10* scale), // Range: [-10.0, 10.0)
         ], 
         this.getRandomFloat(0.1, 2.0), // Range: [0.1, 2.0)
         [ 
@@ -279,7 +280,6 @@ export class Scene {
     this.bvhNodes = [];
     this.bvhNodeObject =  {} as BVHNodeObject;
     const objects = [...this.triangles, ...this.spheres];
-    console.log("objects", objects);
     this.bvhNodeObject = new BVHNodeObject(objects as (Sphere | Triangle)[], this.objectIndeces, 
     0, objects.length, 0);
     // console.log("bvhNodeObject1", this.bvhNodeObject);
@@ -402,7 +402,7 @@ export class Scene {
               this.triangles[1].color[2] = newColor[2];
 
               Renderer.frameCount = 1;
-              Scene.updatedScene = true; // causese writeBuffersto run
+              Scene.updatedScene = true; // causese writeBuffers to run
             });
             li.appendChild(colorPicker);
           
@@ -411,7 +411,7 @@ export class Scene {
           const toggleCheckerBoard = document.createElement("button");
           toggleCheckerBoard.textContent = "Toggle Checkerboard"
           toggleCheckerBoard.classList.add("toggle-btn")
-          toggleCheckerBoard.classList.add("active")
+          // toggleCheckerBoard.classList.add("active")
 
           toggleCheckerBoard.addEventListener("click", () => {
             toggleCheckerBoard.classList.toggle("active");
@@ -532,7 +532,7 @@ export class Scene {
             obj.color[1] = parseInt(hex.slice(3, 5), 16) / 255;
             obj.color[2] = parseInt(hex.slice(5, 7), 16) / 255;
             Renderer.frameCount = 1;
-            Scene.updatedScene = true; // causese writeBuffersto run
+            Scene.updatedScene = true; // causese writeBuffers to run
           });
           li.appendChild(colorPicker);
         } else if (label === "Material") {
@@ -636,7 +636,6 @@ export class Scene {
             posLabel.textContent = newPos.toString();
 
             obj.position[map[label]] = newPos;            
-            Renderer.frameCount = 1;
 
             Scene.updatedScene = true; 
           });
